@@ -1,0 +1,12 @@
+{
+  "name": "peti-unit-sistem",
+  "version": "1.0.0",
+  "description": "ContaPerú PETI 2025 - Sistema de gestión estratégica",
+  "scripts": {
+    "start": "echo 'Servidor de archivos estáticos'",
+    "build": "echo 'No requiere build - archivos estáticos'"
+  },
+  "keywords": ["peti", "contaperu", "sistema", "gestion"],
+  "author": "ContaPerú S.A.C.",
+  "license": "MIT"
+}

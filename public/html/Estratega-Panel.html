@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Estratega | ContaPerú PETI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="../css/Admin-Panel.css">
+  <link rel="stylesheet" href="../css/Estratega-Panel.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <div class="app">
+  <aside class="sidebar">
+    <div class="logo"><h2>Conta<span>Perú</span></h2></div>
+    <nav class="nav-menu">
+      <a href="#" class="nav-item active" data-section="dashboard"><i class="bi bi-speedometer2"></i><span> Dashboard</span></a>
+      <a href="#" class="nav-item" data-section="m01"><i class="bi bi-building"></i><span> Info empresa</span></a>
+      <a href="#" class="nav-item" data-section="m03"><i class="bi bi-bullseye"></i><span> Objetivos</span></a>
+      <a href="#" class="nav-item" data-section="m04"><i class="bi bi-link"></i><span> Cadena de valor</span></a>
+      <a href="#" class="nav-item" data-section="m05"><i class="bi bi-pie-chart"></i><span> Matriz BCG</span></a>
+      <a href="#" class="nav-item" data-section="m06"><i class="bi bi-chess-board"></i><span> Porter</span></a>
+      <a href="#" class="nav-item" data-section="m07"><i class="bi bi-globe"></i><span> PEST</span></a>
+      <a href="#" class="nav-item" data-section="m08"><i class="bi bi-table"></i><span> FODA</span></a>
+      <a href="#" class="nav-item" data-section="m09"><i class="bi bi-tasks"></i><span> CAME</span></a>
+      <a href="#" class="nav-item" data-section="kpis"><i class="bi bi-graph-up"></i><span> KPIs</span></a>
+      <a href="#" class="nav-item" data-section="iniciativas"><i class="bi bi-lightbulb"></i><span> Iniciativas</span></a>
+      <a href="#" class="nav-item" data-section="notificaciones"><i class="bi bi-bell"></i><span> Notificaciones</span><span id="navNotifBadge" class="nav-badge" style="display:none;">0</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <button id="logoutBtn" class="logout-button"><i class="bi bi-box-arrow-right"></i><span> Cerrar sesión</span></button>
+      <p>v1.0.0 · ContaPerú S.A.C.</p>
+    </div>
+  </aside>
+  <main class="main-content">
+    <header class="top-bar">
+      <div class="user-info"><i class="bi bi-person-circle"></i> <span id="userNameDisplay"></span></div>
+	  <div class="plan-selector"><i class="bi bi-diagram-3"></i> <select id="planSelector"></select></div>
+      <div class="date" id="currentDate"></div>
+    </header>
+    <div class="dashboard-content">
+      <!-- Dashboard -->
+	  <div id="dashboard" class="section-content active-section">
+        <div class="dashboard-header">
+          <h1>Panel del Estratega</h1>
+          <button id="solicitarAprobacionBtn" class="btn-primary btn-aprobar-header" disabled>
+            <i class="bi bi-send-check"></i> Solicitar aprobación del plan
+          </button>
+        </div>
+        <div class="cards-grid">
+          <div class="card"><div class="card-title">MÓDULOS COMPLETADOS</div><div class="card-value" id="modulosCompletados">0</div><div class="card-desc">de 9 totales</div></div>
+          <div class="card dias-restantes-card"><div class="card-title">DÍAS RESTANTES</div><div class="card-value" id="diasRestantes">—</div><div class="card-desc" id="diasRestantesDesc">para el cierre del plan</div></div>
+          <div class="card"><div class="card-title">OBJETIVOS GENERALES</div><div class="card-value" id="totalObjetivos">0</div><div class="card-desc">definidos</div></div>
+          <div class="card"><div class="card-title">KPIS</div><div class="card-value" id="totalKPIs">0</div><div class="card-desc">registrados</div></div>
+        </div>
+        <div id="planCriticoBanner" class="plan-critico-banner" style="display:none;">
+          <i class="bi bi-exclamation-diamond-fill"></i>
+          <span>El plan ha sido cerrado. Cualquier modificación posterior queda registrada en estado <strong>crítico por demoras</strong>.</span>
+        </div>
+        <div id="planVencidoBanner" class="overdue-banner" style="display:none;">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+          <span id="planVencidoBannerText">El plan se encuentra <strong>FUERA DE FECHA</strong>. El cronograma establecido ha vencido. Puede continuar editando, pero todas las modificaciones serán registradas.</span>
+        </div>
+        <div class="estado-planes-section" id="estadoPlanesSection">
+          <h2 class="estado-planes-title"><i class="bi bi-list-check"></i> Estado de Planes PETI</h2>
+          <div id="estadoPlanesTable">
+            <table class="estado-planes-table">
+              <thead>
+                <tr>
+                  <th>Plan</th>
+                  <th>Estado</th>
+                  <th>Última actualización</th>
+                  <th>Mensaje del aprobador</th>
+                </tr>
+              </thead>
+              <tbody id="estadoPlanesTbody">
+                <tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:2rem;">Cargando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div id="planEstadoMsg" style="margin-top:1rem"></div>
+      </div>
+
+      <!-- Info empresa (incluye misión, visión, valores) -->
+      <!-- Info empresa (datos fijos + misión/visión/valores) -->
+<div id="m01" class="section-content">
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+    <div>
+      <h1 style="font-size: 1.8rem; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.02em;">Misión, Visión y Valores</h1>
+      <p style="color: #64748b; font-size: 0.92rem; margin: 0.25rem 0 0 0;">Módulo M02 · Define la identidad corporativa de ContaPerú S.A.C.</p>
+    </div>
+    <span class="m01-badge-progreso" id="m01EstadoBadge">En progreso</span>
+  </div>
+
+  <!-- M01 VISTA DE LECTURA (Default) -->
+  <div id="m01ViewContainer">
+    <!-- Ficha de la Empresa -->
+    <div class="m01-view-company-card">
+      <div class="m01-view-company-info">
+        <h2 id="m01ViewNombre">—</h2>
+        <span class="m01-view-sector-badge" id="m01ViewSector"><i class="bi bi-tag-fill"></i> —</span>
+      </div>
+    </div>
+
+    <!-- Misión y Visión en dos columnas -->
+    <div class="m01-view-grid">
+      <div class="m01-view-card mision-card">
+        <div class="m01-view-card-header">
+          <i class="bi bi-compass"></i> Misión
+        </div>
+        <div class="m01-view-card-body" id="m01ViewMision">
+          —
+        </div>
+      </div>
+      <div class="m01-view-card vision-card">
+        <div class="m01-view-card-header">
+          <i class="bi bi-eye"></i> Visión
+        </div>
+        <div class="m01-view-card-body" id="m01ViewVision">
+          —
+        </div>
+      </div>
+    </div>
+
+    <!-- Valores corporativos -->
+    <div class="m01-view-valores-section">
+      <h3 class="m01-view-section-title"><i class="bi bi-gem" style="color: #2563eb;"></i> Valores Corporativos</h3>
+      <div class="m01-view-valores-grid" id="m01ViewValoresGrid">
+        <!-- Se genera dinámicamente -->
+      </div>
+    </div>
+
+    <!-- Botón de acción para editar -->
+    <div class="m01-view-actions">
+      <button id="m01EditBtn" class="btn-primary">
+        <i class="bi bi-pencil-square"></i> Editar datos de la empresa
+      </button>
+      <span id="m01LockIndicator" style="display:none; margin-left:1.25rem; color:#d97706; font-weight:600; font-size:0.88rem;">
+        <i class="bi bi-lock-fill"></i> <span id="m01LockUser">—</span> está editando ahora. Debes esperar a que finalice.
+      </span>
+    </div>
+  </div>
+
+  <!-- CONTENEDOR DE EDICIÓN (WIZARD) -->
+  <div id="m01EditContainer" style="display: none;">
+    <!-- STEPPER DE TRES PASOS (Estilo Premium) -->
+    <div class="m01-stepper-container">
+      <div class="m01-stepper" id="m01Stepper">
+        <div class="m01-stepper-line" id="m01StepperLine"></div>
+        <div class="m01-step active" data-step="1">
+          <div class="m01-step-circle">1</div>
+          <span class="m01-step-label">Misión</span>
+        </div>
+        <div class="m01-step locked" data-step="2">
+          <div class="m01-step-circle">2</div>
+          <span class="m01-step-label">Visión</span>
+        </div>
+        <div class="m01-step locked" data-step="3">
+          <div class="m01-step-circle">3</div>
+          <span class="m01-step-label">Valores</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- BANNER DE CONSEJOS CONTEXTUALES -->
+    <div class="m01-tip-banner" id="m01TipBanner">
+      <i class="bi bi-lightbulb-fill"></i>
+      <span id="m01TipText">La misión define el propósito central de la empresa, lo que hace en el día a día y a quién beneficia.</span>
+    </div>
+
+    <!-- ÁREA DE TRABAJO EN DOS COLUMNAS (Pasos 1 y 2) -->
+    <div id="m01WorkspaceWizard" class="m01-wizard-layout">
+      <!-- Columna Izquierda: Información / Contenido Guardado -->
+      <div class="m01-sidebar-card">
+        <div class="m01-sidebar-card-header" id="m01LeftCardHeader">INFORMACIÓN DE LA EMPRESA</div>
+        <div class="m01-sidebar-card-body" id="m01LeftCardBody">
+          <!-- Campos informativos del plan (lectura) -->
+          <div class="m01-info-item">
+            <label>Nombre de la Empresa</label>
+            <div class="m01-info-value" id="m01InfoNombre">—</div>
+          </div>
+          <div class="m01-info-item" style="margin-top: 1rem;">
+            <label>Sector / Industria</label>
+            <div class="m01-info-value" id="m01InfoSector">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Columna Derecha: Editor Activo con Foco Resplandeciente -->
+      <div class="m01-main-card" id="m01MainCard">
+        <div class="m01-main-card-header" id="m01RightCardHeader">✎ MISIÓN — EDITANDO AHORA</div>
+        <div class="m01-main-card-body">
+          <textarea id="m01ActiveTextarea" placeholder="Escribe aquí..."></textarea>
+          
+          <!-- Inputs / Textareas heredados (ocultos para mantener compatibilidad total de guardados legados) -->
+          <div style="display: none;">
+            <input type="text" id="empresaNombre" readonly disabled>
+            <input type="text" id="empresaSector" readonly disabled>
+            <textarea id="mision"></textarea>
+            <textarea id="vision"></textarea>
+            <textarea id="valores"></textarea>
+            <button id="saveM01">Guardar legado</button>
+          </div>
+        </div>
+        <div class="m01-main-card-footer">
+          <span id="m01CharCounter">0 / 500 caracteres</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÁREA DE TRABAJO DE VALORES (Paso 3) -->
+    <div id="m01WorkspaceValores" class="m01-valores-layout" style="display: none;">
+      <div class="m01-valores-header">
+        <div class="valores-title">
+          <i class="bi bi-gem" style="color: #2563eb;"></i> VALORES CORPORATIVOS
+        </div>
+        <div class="valores-count" id="m01ValoresCount">
+          0 de 6 máximo
+        </div>
+      </div>
+      
+      <div class="m01-valores-grid" id="m01ValoresGrid">
+        <!-- Generado dinámicamente en JS -->
+      </div>
+    </div>
+
+    <!-- BOTONES DE NAVEGACIÓN INFERIOR -->
+    <div class="m01-footer-nav">
+      <button id="m01PrevBtn" class="btn-secondary" disabled>
+        <i class="bi bi-arrow-left"></i> Anterior
+      </button>
+      <div style="display: flex; gap: 0.75rem;">
+        <button id="m01CancelEditBtn" class="btn-save-draft">
+          <i class="bi bi-x-lg"></i> Cancelar modificaciones
+        </button>
+        <button id="m01NextBtn" class="btn-primary">
+          Guardar y continuar <i class="bi bi-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE INGRESO/EDICIÓN DE VALORES -->
+  <div id="m01ValorModal" class="m01-modal" style="display: none;">
+    <div class="m01-modal-content">
+      <div class="m01-modal-header">
+        <h3 id="m01ModalTitle">Añadir Valor Corporativo</h3>
+        <button class="m01-modal-close" id="m01ModalCloseBtn"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="m01-modal-body">
+        <div class="edit-group">
+          <label for="m01ModalInputTitle">Título del Valor</label>
+          <input type="text" id="m01ModalInputTitle" placeholder="Ej. Integridad, Confidencialidad, Precisión...">
+        </div>
+        <div class="edit-group" style="margin-top: 1rem;">
+          <label for="m01ModalInputDesc">Descripción / Compromiso</label>
+          <textarea id="m01ModalInputDesc" rows="3" placeholder="Describe qué significa este valor y cómo se practica en el día a día..."></textarea>
+        </div>
+      </div>
+      <div class="m01-modal-footer">
+        <button class="btn-secondary" id="m01ModalCancelBtn">Cancelar</button>
+        <button class="btn-primary" id="m01ModalSaveBtn">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+      <!-- Objetivos estratégicos (interfaz responsiva) -->
+      <div id="m03" class="section-content">
+        <h1>Objetivos Estratégicos</h1>
+        <div id="nuevoObjetivoGeneralContainer"><button id="agregarObjetivoGeneral" class="btn-primary" style="margin-top:1rem;">+ Nuevo objetivo general</button></div><br>
+        <div id="objetivosContainer" class="objetivos-container"></div>
+      </div>
+
+      <!-- MODAL NUEVO/EDITAR OBJETIVO -->
+      <div id="objModal" class="obj-modal" style="display:none;">
+        <div class="obj-modal-content">
+          <div class="obj-modal-header">
+            <h3 id="objModalTitle">Nuevo objetivo general</h3>
+            <button class="obj-modal-close" id="objModalCloseBtn"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <div class="obj-modal-body">
+            <input type="hidden" id="objModalEditId" value="">
+            <div class="edit-group">
+              <label>Objetivo general <span style="color:#dc2626;">*</span></label>
+              <textarea id="objGeneralDesc" rows="2" placeholder="Escribe el objetivo general..."></textarea>
+            </div>
+            <div class="obj-espec-seccion">
+              <div class="obj-espec-header">
+                <label>Objetivos específicos</label>
+                <button id="objAddEspecBtn" class="btn-small btn-primary"><i class="bi bi-plus-lg"></i> Añadir específico</button>
+              </div>
+              <div id="objEspecList"></div>
+            </div>
+          </div>
+          <div class="obj-modal-footer">
+            <button id="objCancelBtn" class="btn-secondary">Cancelar</button>
+            <button id="objSaveBtn" class="btn-primary"><i class="bi bi-check-lg"></i> Guardar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL CONFIRMAR SALIR SIN GUARDAR -->
+      <div id="objConfirmModal" class="obj-modal" style="display:none;">
+        <div class="obj-modal-content" style="max-width:420px;">
+          <div class="obj-modal-header" style="border-bottom-color:#fef3c7;">
+            <h3 style="color:#92400e;"><i class="bi bi-exclamation-triangle-fill" style="color:#f59e0b;"></i> ¿Salir sin guardar?</h3>
+            <button class="obj-modal-close" onclick="cerrarObjConfirmModal()"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <div class="obj-modal-body">
+            <p style="color:#475569;line-height:1.6;">Hay datos sin guardar en el formulario. Si sales ahora, los cambios se perderán.</p>
+          </div>
+          <div class="obj-modal-footer">
+            <button id="objConfirmStayBtn" class="btn-secondary">Seguir editando</button>
+            <button id="objConfirmLeaveBtn" class="btn-danger">Salir sin guardar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL CONFIRMAR ELIMINAR OBJETIVO -->
+      <div id="objDeleteModal" class="obj-modal" style="display:none;">
+        <div class="obj-modal-content" style="max-width:420px;">
+          <div class="obj-modal-header" style="border-bottom-color:#fecaca;">
+            <h3 style="color:#991b1b;"><i class="bi bi-trash-fill" style="color:#dc2626;"></i> Eliminar objetivo</h3>
+            <button class="obj-modal-close" onclick="cerrarObjDeleteModal()"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <div class="obj-modal-body">
+            <p style="color:#475569;line-height:1.6;" id="objDeleteText">¿Estás seguro de eliminar este objetivo general y todos sus específicos?</p>
+            <input type="hidden" id="objDeleteTargetId" value="">
+          </div>
+          <div class="obj-modal-footer">
+            <button id="objDeleteCancelBtn" class="btn-secondary">Cancelar</button>
+            <button id="objDeleteConfirmBtn" class="btn-danger">Eliminar</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="m04" class="section-content">
+        <h1>Autodiagnóstico — Cadena de valor interna</h1>
+        <p class="subtitulo" id="progresoItemsM04">25 ítems · Escala 0 (desacuerdo total) → 4 (acuerdo total) · <span class="progress-pill"><i class="bi bi-check2-circle"></i> <span id="progresoCount">0/25</span></span></p>
+
+        <!-- STEPPER SUPERIOR -->
+        <div class="wizard-stepper-container">
+          <div class="wizard-stepper" id="wizardStepper">
+            <div class="stepper-progress-line" id="stepperProgressLine"></div>
+            <div class="stepper-step active" data-step="1">
+              <div class="stepper-circle">1</div>
+              <span class="stepper-step-label">Infraestr.</span>
+            </div>
+            <div class="stepper-step locked" data-step="2">
+              <div class="stepper-circle">2</div>
+              <span class="stepper-step-label">RR.HH.</span>
+            </div>
+            <div class="stepper-step locked" data-step="3">
+              <div class="stepper-circle">3</div>
+              <span class="stepper-step-label">Tecnología</span>
+            </div>
+            <div class="stepper-step locked" data-step="4">
+              <div class="stepper-circle">4</div>
+              <span class="stepper-step-label">Aprovis.</span>
+            </div>
+            <div class="stepper-step locked" data-step="5">
+              <div class="stepper-circle">5</div>
+              <span class="stepper-step-label">Primarias</span>
+            </div>
+          </div>
+          <div class="stepper-current-label" id="stepperCurrentLabel"><i class="bi bi-arrow-right-circle-fill"></i> Paso 1 de 5: Infraestructura y Gestión</div>
+        </div>
+
+        <!-- PANTALLA DEL WIZARD -->
+        <div id="wizardBlockContainer">
+          <div class="bloque-card-premium">
+            <div class="bloque-card-header">
+              <h2 id="bloqueTitulo"><span class="bloque-icon"><i class="bi bi-building"></i></span> INFRAESTRUCTURA Y GESTIÓN — ÍTEMS 1 AL 5</h2>
+              <div class="bloque-progress-bar" id="bloqueProgressBar">
+                <div class="bar-track"><div class="bar-fill" id="bloqueBarFill" style="width: 0%"></div></div>
+                <span class="bar-label" id="bloqueBarLabel">0/5</span>
+              </div>
+            </div>
+
+            <!-- Lista de preguntas -->
+            <div id="cuestionarioM04" class="cuestionario-container">
+              <!-- Generado dinámicamente con JS -->
+            </div>
+
+            <!-- Footer de la tarjeta -->
+            <div class="bloque-card-footer">
+              <div class="puntaje-acumulado-col">
+                <i class="bi bi-bar-chart-fill" style="color: #2563eb;"></i>
+                Puntaje acumulado: <strong id="wizardPuntajeAcumulado">0</strong> / 100
+              </div>
+              <div class="bloque-score-mini">
+                <span>Bloque: </span>
+                <span class="score-value" id="wizardBloqueScore">0</span>
+                <span class="score-max">/ 20</span>
+              </div>
+              <div class="potencial-col">
+                <span id="wizardPotencialBadge" class="potencial-pill badge-alto"><i class="bi bi-arrow-up-circle"></i> Potencial de mejora alto</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer de navegación -->
+          <div class="wizard-footer-nav">
+            <button id="wizardCancelBtn" class="btn-secondary" style="display:none;">
+              Cancelar actualización
+            </button>
+            <button id="wizardPrevBtn" class="btn-secondary" disabled>
+              <i class="bi bi-arrow-left"></i> Anterior
+            </button>
+            <button id="wizardNextBtn" class="btn-primary" disabled>
+              Siguiente bloque <i class="bi bi-arrow-right"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- PANTALLA FINAL DE RESULTADOS -->
+        <div id="wizardResultsContainer" class="resultados-finales-container" style="display: none;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+            <div>
+              <h2 style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin-bottom: 0.25rem; letter-spacing: -0.02em;">
+                <i class="bi bi-clipboard2-check-fill" style="color: #2563eb;"></i> Diagnóstico Finalizado
+              </h2>
+              <p style="color: #64748b; font-size: 0.92rem; margin: 0;">Perfil estratégico y trazabilidad automática de fortalezas y debilidades.</p>
+            </div>
+            <button class="btn-actualizar-cadena" id="btnBackToWizard">
+              <i class="bi bi-arrow-repeat"></i> Actualizar cadena valor
+            </button>
+          </div>
+
+          <!-- Fichas de Resumen Global (3 columnas) -->
+          <div class="resumen-cards-grid">
+            <div class="resumen-card-premium">
+              <span class="card-label">Puntaje Global</span>
+              <div class="puntaje-total-premium"><span id="resultadoPuntajeTotal">0</span><span style="font-size: 1.25rem; font-weight: 500; color: #94a3b8;"> / 100</span></div>
+              <p class="card-subtext">Puntuación acumulada del autodiagnóstico</p>
+            </div>
+            <div class="resumen-card-premium">
+              <span class="card-label">Potencial de Mejora</span>
+              <div class="potencial-total-premium" id="resultadoPotencialMejora">0%</div>
+              <p class="card-subtext" id="resultadoPotencialTexto">Potencial de mejora alto</p>
+            </div>
+            <div class="resumen-card-premium">
+              <span class="card-label">Clasificación</span>
+              <div class="clasificacion-total-premium" id="resultadoClasificacion">—</div>
+              <p class="card-subtext" id="resultadoClasificacionTexto">Nivel del diagnóstico</p>
+            </div>
+          </div>
+
+          <!-- Desglose por Bloques -->
+          <div class="bloques-breakdown" id="bloquesBreakdown">
+            <!-- Generado dinámicamente con JS -->
+          </div>
+
+          <!-- Gráfico Radar -->
+          <div class="radar-box">
+            <h3><i class="bi bi-pentagon" style="color: #2563eb;"></i> Perfil de la Cadena de Valor Interna</h3>
+            <div class="radar-canvas-container">
+              <canvas id="radarChartM04"></canvas>
+            </div>
+          </div>
+
+          <!-- Sección de Trazabilidad: Fortalezas -->
+          <div class="trazabilidad-seccion" id="seccionFortalezas">
+            <div class="trazabilidad-seccion-header fortalezas">
+              <h3><i class="bi bi-shield-check-fill"></i> Fortalezas Identificadas</h3>
+              <span class="count-badge" id="countFortalezas">0</span>
+            </div>
+            <table class="foda-premium-table" id="tablaFortalezasM04">
+              <thead>
+                <tr>
+                  <th style="width: 70px; text-align: center;">Ítem</th>
+                  <th>Enunciado y Trazabilidad FODA</th>
+                  <th style="width: 200px;">Bloque</th>
+                  <th style="width: 90px; text-align: center;">Puntaje</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Llenado dinámicamente con JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Sección de Trazabilidad: Debilidades -->
+          <div class="trazabilidad-seccion" id="seccionDebilidades">
+            <div class="trazabilidad-seccion-header debilidades">
+              <h3><i class="bi bi-exclamation-triangle-fill"></i> Debilidades Identificadas</h3>
+              <span class="count-badge" id="countDebilidades">0</span>
+            </div>
+            <table class="foda-premium-table" id="tablaDebilidadesM04">
+              <thead>
+                <tr>
+                  <th style="width: 70px; text-align: center;">Ítem</th>
+                  <th>Enunciado y Trazabilidad FODA</th>
+                  <th style="width: 200px;">Bloque</th>
+                  <th style="width: 90px; text-align: center;">Puntaje</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Llenado dinámicamente con JS -->
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- M04 a M09 (JSON) 
+      <div id="m04" class="section-content"><h1>Cadena de valor</h1><div class="edit-group"><label>Contenido (JSON)</label><textarea id="m04Contenido" rows="8" placeholder='{"potencial":72,"dimensiones":[65,70,80,60,75]}'></textarea></div><button id="saveM04" class="btn-primary">Guardar cambios</button></div>
+    -->
+      <div id="m05" class="section-content">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+          <div>
+            <h1 style="font-size: 1.8rem; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.02em;">Matriz BCG</h1>
+            <p style="color: #64748b; font-size: 0.92rem; margin: 0.25rem 0 0 0;">Módulo M05 · Cuadrantes de participación y crecimiento de las UENs de ContaPerú.</p>
+          </div>
+          <span class="m05-badge-progreso" id="m05EstadoBadge">No iniciado</span>
+        </div>
+
+        <!-- BANNER DE ESTADO PROCESADO (Solo Lectura) -->
+        <div id="m05AlertBanner" class="m05-alert-banner" style="display: none;">
+          <i class="bi bi-info-circle-fill"></i>
+          <span id="m05AlertText">Este planeamiento ya cuenta con una Matriz BCG generada.</span>
+        </div>
+
+        <!-- CASO A: RESULTADOS Y VISUALIZACIÓN GRÁFICA -->
+        <div id="m05ResultsContainer" style="display: none;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+            <div>
+              <h2 style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin-bottom: 0.25rem; letter-spacing: -0.02em;">
+                <i class="bi bi-grid-3x3-gap-fill" style="color: #2563eb;"></i> Matriz BCG Generada
+              </h2>
+              <p style="color: #64748b; font-size: 0.92rem; margin: 0;">Cuadrantes estratégicos por unidad de negocio.</p>
+            </div>
+            <button class="btn-actualizar-cadena" id="btnBackToBCG">
+              <i class="bi bi-arrow-repeat"></i> Actualizar matriz BCG
+            </button>
+          </div>
+
+          <!-- Summary Cards BCG -->
+          <div class="bcg-resumen-cards-grid">
+            <div class="resumen-card-premium">
+              <span class="card-label">UENs Analizadas</span>
+              <div class="puntaje-total-premium" id="bcgResultUensCount">—</div>
+              <p class="card-subtext">Unidades estratégicas evaluadas</p>
+            </div>
+            <div class="resumen-card-premium">
+              <span class="card-label">Cuadrante Dominante</span>
+              <div class="clasificacion-total-premium" id="bcgResultCuadranteDominante">—</div>
+              <p class="card-subtext" id="bcgResultCuadranteTexto">Cuadrante con mayor presencia</p>
+            </div>
+            <div class="resumen-card-premium">
+              <span class="card-label">Cobertura de Mercado</span>
+              <div class="potencial-total-premium" id="bcgResultCobertura">—</div>
+              <p class="card-subtext" id="bcgResultCoberturaTexto">Participación del portafolio total</p>
+            </div>
+          </div>
+
+          <div class="bcg-dashboard-grid">
+            <div class="bcg-chart-card">
+              <h3><i class="bi bi-grid-3x3-gap-fill"></i> Matriz de Burbujas BCG</h3>
+              <div class="bcg-canvas-wrapper">
+                <canvas id="bcgChart"></canvas>
+              </div>
+            </div>
+            <div class="bcg-table-card">
+              <h3><i class="bi bi-lightbulb-fill"></i> Conclusiones y Decisiones Automatizadas</h3>
+              <div class="bcg-conclusions-wrapper">
+                <table class="bcg-summary-table" id="bcgSummaryTable">
+                  <thead>
+                    <tr>
+                      <th>Servicio UEN</th>
+                      <th>Cuadrante</th>
+                      <th>Estrategia</th>
+                      <th>Inversión</th>
+                      <th>Rentabilidad</th>
+                      <th>Decisión</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CASO B: ASISTENTE / WIZARD DE EDICIÓN -->
+        <div id="m05WizardContainer">
+          <div class="m05-tip-banner" id="m05TipBanner">
+            <i class="bi bi-lightbulb-fill" style="color: #f59e0b;"></i>
+            <span id="m05TipText">Complete los datos financieros de cada paso para generar la Matriz BCG.</span>
+          </div>
+
+          <!-- STEPPER BCG (3 pasos, estilo M04) -->
+          <div class="wizard-stepper-container">
+            <div class="wizard-stepper" id="bcgStepper">
+              <div class="stepper-progress-line" id="bcgStepperProgressLine"></div>
+              <div class="stepper-step active" data-step="1">
+                <div class="stepper-circle">1</div>
+                <span class="stepper-step-label">Portafolio</span>
+              </div>
+              <div class="stepper-step locked" data-step="2">
+                <div class="stepper-circle">2</div>
+                <span class="stepper-step-label">Mercado</span>
+              </div>
+              <div class="stepper-step locked" data-step="3">
+                <div class="stepper-circle">3</div>
+                <span class="stepper-step-label">Competencia</span>
+              </div>
+            </div>
+            <div class="stepper-current-label" id="bcgStepperCurrentLabel">
+              <i class="bi bi-arrow-right-circle-fill"></i> Paso 1 de 3: Portafolio y Ventas
+            </div>
+          </div>
+
+          <!-- Bloque premium -->
+          <div class="bloque-card-premium">
+            <div class="bloque-card-header">
+              <h2 id="bcgBloqueTitulo">PORTAFOLIO Y VENTAS — PASO 1</h2>
+              <div class="bloque-progress-bar" id="bcgBloqueProgressBar">
+                <div class="bar-track"><div class="bar-fill" id="bcgBloqueBarFill" style="width: 0%"></div></div>
+                <span class="bar-label" id="bcgBloqueBarLabel">0/5</span>
+              </div>
+            </div>
+
+            <div class="bcg-tab-content">
+              <div class="bcg-panel active" id="bcgPanel1">
+                <div class="bcg-panel-desc">Registre los ingresos por ventas anuales de ContaPerú correspondientes a cada Unidad Estratégica de Negocio (UEN). El peso porcentual se calculará dinámicamente.</div>
+                <table class="bcg-wizard-table" id="bcgTablePaso1">
+                  <thead>
+                    <tr>
+                      <th>Unidad Estratégica de Negocio (UEN)</th>
+                      <th style="width: 300px;">Ventas Empresa ($)</th>
+                      <th style="width: 200px; text-align: center;">% S/ TOTAL</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                  <tfoot>
+                    <tr>
+                      <td><strong>VENTAS TOTALES</strong></td>
+                      <td><span id="bcgTotalVentasEmpresa">$0.00</span></td>
+                      <td style="text-align: center;"><strong id="bcgTotalPesoEmpresa">100.00%</strong></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              <div class="bcg-panel" id="bcgPanel2">
+                <div class="bcg-panel-desc">Ingrese las ventas globales estimadas del mercado en el sector para el año anterior y el año actual de cada servicio. Esto determinará el eje de crecimiento del mercado.</div>
+                <table class="bcg-wizard-table" id="bcgTablePaso2">
+                  <thead>
+                    <tr>
+                      <th>Unidad Estratégica de Negocio (UEN)</th>
+                      <th style="width: 250px;">Ventas Mercado Año Anterior ($)</th>
+                      <th style="width: 250px;">Ventas Mercado Año Actual ($)</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+
+              <div class="bcg-panel" id="bcgPanel3">
+                <div class="bcg-panel-desc">Identifique al rival comercial líder del mercado para cada servicio e ingrese su volumen de ventas estimado para evaluar nuestra participación de mercado relativa.</div>
+                <table class="bcg-wizard-table" id="bcgTablePaso3">
+                  <thead>
+                    <tr>
+                      <th>Unidad Estratégica de Negocio (UEN)</th>
+                      <th style="width: 300px;">Nombre Competidor Líder</th>
+                      <th style="width: 250px;">Ventas Competidor Líder ($)</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="bloque-card-footer">
+              <div class="puntaje-acumulado-col">
+                UENs registradas: <strong id="bcgUensCount">0</strong> / 5
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer de navegación (estilo M04) -->
+          <div class="wizard-footer-nav">
+            <button id="bcgCancelBtn" class="btn-secondary" style="display:none;">
+              Cancelar actualización
+            </button>
+            <button id="bcgPrevBtn" class="btn-secondary" disabled>
+              <i class="bi bi-arrow-left"></i> Anterior
+            </button>
+            <button id="bcgNextBtn" class="btn-primary" disabled>
+              Siguiente bloque <i class="bi bi-arrow-right"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL DE CONFIRMACIÓN DE CANCELAR ACTUALIZACIÓN BCG -->
+      <div id="bcgCancelConfirmModal" class="m01-modal" style="display: none;">
+        <div class="m01-modal-content">
+          <div class="m01-modal-header" style="border-bottom-color: #f1f5f9;">
+            <h3 style="color: #92400e; display: flex; align-items: center; gap: 0.5rem; margin: 0; font-size: 1.1rem;"><i class="bi bi-exclamation-triangle-fill" style="color: #d97706;"></i> ¿Cancelar actualización?</h3>
+            <button type="button" class="m01-modal-close" id="bcgCancelCloseBtn"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <div class="m01-modal-body" style="padding: 1.5rem;">
+            <p style="color: #475569; line-height: 1.6; margin: 0; font-size: 0.92rem;">¿Está seguro de salir? Los datos no se guardarán ya que no finalizó el análisis BCG.</p>
+          </div>
+          <div class="m01-modal-footer">
+            <button type="button" class="btn-secondary" onclick="document.getElementById('bcgCancelConfirmModal').style.display='none'">Volver al análisis</button>
+            <button type="button" class="btn-primary" id="bcgCancelConfirmBtn" style="background-color: #dc2626; border-color: #dc2626; color: white;">Sí, cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL DE CONFIRMACIÓN PARA RECALCULAR -->
+      <div id="m05ConfirmModal" class="m01-modal" style="display: none;">
+        <div class="m01-modal-content">
+          <div class="m01-modal-header" style="border-bottom-color: #f1f5f9;">
+            <h3 style="color: #d97706; display: flex; align-items: center; gap: 0.5rem; margin: 0; font-size: 1.1rem;"><i class="bi bi-exclamation-triangle-fill"></i> Modificar Matriz BCG</h3>
+            <button type="button" class="m01-modal-close" onclick="cerrarBcgModal('m05ConfirmModal')"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <div class="m01-modal-body" style="padding: 1.5rem;">
+            <p style="color: #475569; line-height: 1.6; margin: 0; font-size: 0.92rem;">¿Está seguro de que desea modificar los datos? Esto alterará el reporte actual que la gerencia y los aprobadores están revisando.</p>
+          </div>
+          <div class="m01-modal-footer">
+            <button type="button" class="btn-secondary" onclick="cerrarBcgModal('m05ConfirmModal')">Cancelar</button>
+            <button type="button" class="btn-primary" style="background-color: #d97706; border-color: #d97706; color: white;" id="m05ConfirmRecalcularBtn">Sí, modificar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL DE ADVERTENCIA / ERROR DE VALIDACIÓN -->
+      <div id="m05WarningModal" class="m01-modal" style="display: none;">
+        <div class="m01-modal-content">
+          <div class="m01-modal-header">
+            <h3 style="color: #dc2626; display: flex; align-items: center; gap: 0.5rem; margin: 0; font-size: 1.1rem;"><i class="bi bi-x-circle-fill"></i> Error de Validación</h3>
+            <button type="button" class="m01-modal-close" onclick="cerrarBcgModal('m05WarningModal')"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <div class="m01-modal-body" style="padding: 1.5rem;">
+            <p id="m05WarningText" style="color: #475569; line-height: 1.6; margin: 0; font-size: 0.92rem;">Por favor, complete todos los campos financieros con números válidos mayores a cero.</p>
+          </div>
+          <div class="m01-modal-footer">
+            <button type="button" class="btn-primary" style="background-color: #dc2626; border-color: #dc2626; color: white;" onclick="cerrarBcgModal('m05WarningModal')">Entendido</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL DE BLOQUEO DE CONCURRENCIA -->
+      <div id="m05LockModal" class="m01-modal" style="display: none;">
+        <div class="m01-modal-content">
+          <div class="m01-modal-header" style="background-color: #fee2e2; border-bottom-color: #fca5a5;">
+            <h3 style="color: #991b1b; display: flex; align-items: center; gap: 0.5rem; margin: 0; font-size: 1.1rem;"><i class="bi bi-lock-fill"></i> Módulo Bloqueado</h3>
+            <button type="button" class="m01-modal-close" onclick="cerrarBcgModal('m05LockModal')" style="color: #991b1b; background-color: #fca5a5; opacity: 0.7; border: none;"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <div class="m01-modal-body" style="padding: 1.5rem;">
+            <p id="m05LockText" style="color: #7f1d1d; line-height: 1.6; margin: 0; font-weight: 500; font-size: 0.92rem;">
+              🔒 El módulo está siendo editado actualmente por el usuario [Nombre_Estratega_A]. Intente más tarde.
+            </p>
+          </div>
+          <div class="m01-modal-footer" style="background-color: #fef2f2;">
+            <button type="button" class="btn-primary" style="background-color: #dc2626; border-color: #dc2626; color: white;" onclick="cerrarBcgModal('m05LockModal')">Volver</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL DE CONFIRMACIÓN DE CANCELAR ACTUALIZACIÓN M04 -->
+      <div id="m04CancelConfirmModal" class="m01-modal" style="display: none;">
+        <div class="m01-modal-content">
+          <div class="m01-modal-header" style="border-bottom-color: #f1f5f9;">
+            <h3 style="color: #92400e; display: flex; align-items: center; gap: 0.5rem; margin: 0; font-size: 1.1rem;"><i class="bi bi-exclamation-triangle-fill" style="color: #d97706;"></i> ¿Cancelar actualización?</h3>
+            <button type="button" class="m01-modal-close" id="m04CancelCloseBtn"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <div class="m01-modal-body" style="padding: 1.5rem;">
+            <p style="color: #475569; line-height: 1.6; margin: 0; font-size: 0.92rem;">¿Está seguro de salir? Los datos no se guardarán ya que no finalizó el autodiagnóstico.</p>
+          </div>
+          <div class="m01-modal-footer">
+            <button type="button" class="btn-secondary" onclick="document.getElementById('m04CancelConfirmModal').style.display='none'">Volver al diagnóstico</button>
+            <button type="button" class="btn-primary" id="m04CancelConfirmBtn" style="background-color: #dc2626; border-color: #dc2626; color: white;">Sí, cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="m06" class="section-content"><h1>5 Fuerzas de Porter</h1><div class="edit-group"><label>Contenido (JSON)</label><textarea id="m06Contenido" rows="8" placeholder='{"rivalidad":4,"nuevosEntrantes":3,"poderClientes":4,"poderProveedores":2,"sustitutos":3}'></textarea></div><button id="saveM06" class="btn-primary">Guardar cambios</button></div>
+      <div id="m07" class="section-content"><h1>Análisis PEST</h1><div class="edit-group"><label>Contenido (JSON)</label><textarea id="m07Contenido" rows="8" placeholder='{"politico":70,"economico":65,"social":80,"tecnologico":90,"ambiental":60}'></textarea></div><button id="saveM07" class="btn-primary">Guardar cambios</button></div>
+      <div id="m08" class="section-content"><h1>Matriz FODA</h1><div class="edit-group"><label>Contenido (JSON)</label><textarea id="m08Contenido" rows="8" placeholder='{"fortalezas":["Equipo calificado"],"debilidades":[],"oportunidades":[],"amenazas":[]}'></textarea></div><button id="saveM08" class="btn-primary">Guardar cambios</button></div>
+      <div id="m09" class="section-content"><h1>Matriz CAME</h1><div class="edit-group"><label>Contenido (JSON)</label><textarea id="m09Contenido" rows="8" placeholder='{"corregir":"...","afrontar":"...","mantener":"...","explotar":"..."}'></textarea></div><button id="saveM09" class="btn-primary">Guardar cambios</button></div>
+
+      <!-- KPIs e Iniciativas -->
+      <div id="kpis" class="section-content"><h1>KPIs estratégicos</h1><div id="kpisContainer"></div><button id="agregarKPI" class="btn-primary">+ Nuevo KPI</button></div>
+      <div id="iniciativas" class="section-content"><h1>Iniciativas estratégicas</h1><div id="iniciativasContainer"></div><button id="agregarIniciativa" class="btn-primary">+ Nueva iniciativa</button></div>
+      <div id="notificaciones" class="section-content"><h1><i class="bi bi-bell"></i> Notificaciones</h1><p style="color:#64748b;margin-bottom:1rem;">Alertas y mensajes dirigidos a ti desde el Aprobador.</p><div id="notificacionesEstrategaList"></div></div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal cerrar sesión estilo Estratega -->
+<div id="confirmarLogoutModal" class="m01-modal" style="display:none;">
+  <div class="m01-modal-content" style="max-width:400px;">
+    <div class="m01-modal-header">
+      <h3 style="display:flex;align-items:center;gap:0.5rem;"><i class="bi bi-box-arrow-right" style="color:#dc2626;"></i> Cerrar sesión</h3>
+      <button type="button" class="m01-modal-close" onclick="document.getElementById('confirmarLogoutModal').style.display='none'"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="m01-modal-body" style="text-align:center;padding:1.5rem;">
+      <p style="color:#475569;line-height:1.6;margin:0;font-size:0.92rem;">¿Está seguro de que desea cerrar la sesión actual?</p>
+    </div>
+    <div class="m01-modal-footer">
+      <button type="button" class="btn-secondary" onclick="document.getElementById('confirmarLogoutModal').style.display='none'">Cancelar</button>
+      <button type="button" class="btn-danger" id="confirmarLogoutBtn" onclick="confirmarLogout()"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/bcgService.js"></script>
+<script src="../js/Estratega-Panel.js"></script>
+</body>
+</html>

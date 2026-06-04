@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>ContaPerú PETI | Iniciar Sesión</title>
+  <link rel="stylesheet" href="css/index.css">
+   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <!-- SDK de Supabase (UMD build for global window.supabase) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+  <div class="login-grid">
+    <div class="brand-column">
+      <div class="brand-content">
+        <h1 class="title">ContaPerú S.A.C.</h1><br>
+        <h1><span>PETI</span></h1>
+        <p class="tagline">Planeamiento Estratégico de Tecnologías de Información — Plataforma de gestión y seguimiento</p>
+        <div class="stat-group">
+          <div class="stat-card"><i class="fas fa-calendar-alt"></i> <strong>2026</strong>Año</div>
+          <div class="stat-card"><i class="fas fa-cubes"></i> <strong>1.0</strong>Versión</div>
+        </div>
+        <div class="divider"></div>
+        <div class="quote">
+          <i class="fas fa-chart-line"></i>
+          <p>Gestión estratégica alineada con la transformación digital.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-column">
+      <div class="form-container">
+        <div class="form-header">
+          <h2>Iniciar sesión</h2>
+        </div>
+        <form id="loginForm">
+          <div class="input-field">
+            <label>Usuario</label>
+            <input type="text" id="username" placeholder="Usuario" autocomplete="off">
+          </div>
+          <div class="input-field">
+            <label>Contraseña</label>
+            <input type="password" id="password" placeholder="Contraseña">
+          </div>
+
+          <!--
+          <div class="role-preview">
+            <p class="preview-label"><i class="fas fa-eye"></i> Vista previa de rol detectado</p>
+            <div class="role-buttons">
+              <button type="button" class="role-btn" data-email="admin" data-password="123456">Administrador</button>
+              <button type="button" class="role-btn" data-email="aprobador" data-password="123456">Aprobador</button>
+              <button type="button" class="role-btn" data-email="estratega" data-password="123456">Estratega</button>
+              <button type="button" class="role-btn" data-email="lideresArea" data-password="123456">Líderes de área</button>
+              <button type="button" class="role-btn" data-email="equipoOperativo" data-password="123456">Equipo Operativo</button>
+            </div>
+          </div>
+          -->
+
+          <button type="submit" class="btn-login">Iniciar sesión</button>
+          <div class="forgot-link">
+            <p>¿Olvidaste tu contraseña? Contacta al <a href="#">administrador</a></p>
+          </div>
+        </form>
+      </div>
+      <div class="footer-note">
+        <p>© 2026 ContaPerú S.A.C. · Todos los derechos reservados</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/index.js"></script> 
+
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin | ContaPerú PETI</title>
+  <link rel="stylesheet" href="../css/Admin-Panel.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo"><h2>Conta<span>Perú</span></h2></div>
+    <nav class="nav-menu">
+      <a href="#" class="nav-item active" data-section="dashboard"><i class="bi bi-speedometer2"></i> <span>Dashboard</span></a>
+      <a href="#" class="nav-item" data-section="empresa"><i class="bi bi-building"></i> <span>Info empresa</span></a>
+      <a href="#" class="nav-item" data-section="proyectos"><i class="bi bi-folder2-open"></i> <span>Proyectos del área</span></a>
+      <a href="#" class="nav-item" data-section="equipo"><i class="bi bi-people"></i> <span>Gestión de equipo</span></a>
+      <a href="#" class="nav-item" data-section="tareas"><i class="bi bi-check2-square"></i> <span>Tareas del área</span></a>
+      <a href="#" class="nav-item" data-section="reportes"><i class="bi bi-file-earmark-bar-graph"></i> <span>Reportes del área</span></a>
+      <a href="#" class="nav-item" data-section="recursos"><i class="bi bi-diagram-3"></i> <span>Recursos</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <button id="logoutBtn" class="logout-button"><i class="bi bi-box-arrow-right"></i> <span>Cerrar sesión</span></button>
+      <p>v1.0.0 · ContaPerú S.A.C.</p>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main-content">
+    <header class="top-bar">
+      <div class="user-info"><i class="bi bi-person-circle"></i> <span id="userNameDisplay">Líder de Área</span></div>
+      <div class="date" id="currentDate"></div>
+    </header>
+
+    <div class="dashboard-content">
+      <!-- DASHBOARD -->
+      <div id="dashboard" class="section-content active-section">
+        <h1>Panel de Control del Área</h1>
+        <p class="plan-title">Resumen de gestión del equipo de <span id="areaNombre">Tecnología</span></p>
+        <div class="cards-grid">
+          <div class="card"><div class="card-title">PROYECTOS ACTIVOS</div><div class="card-value">3</div><div class="card-desc">En curso</div></div>
+          <div class="card"><div class="card-title">MIEMBROS DEL EQUIPO</div><div class="card-value">5</div><div class="card-desc">+1 novato</div></div>
+          <div class="card"><div class="card-title">TAREAS PENDIENTES</div><div class="card-value">12</div><div class="card-desc">7 en progreso</div></div>
+          <div class="card"><div class="card-title">AVANCE GLOBAL DEL ÁREA</div><div class="card-value">74%</div><div class="card-desc">+8% último mes</div></div>
+        </div>
+        <div class="chart-row">
+          <div class="chart-box"><canvas id="avanceAreaChart"></canvas><p>Avance por proyecto</p></div>
+          <div class="chart-box"><canvas id="cargaEquipoChart"></canvas><p>Carga de trabajo por miembro</p></div>
+        </div>
+        <div class="info-card"><i class="bi bi-megaphone"></i> <strong>Anuncio:</strong> Reunión semanal del área el jueves a las 11:00 AM.</div>
+      </div>
+
+      <!-- INFO EMPRESA (M01 global) -->
+      <div id="empresa" class="section-content">
+        <h1>Información de la empresa</h1>
+        <p class="section-subtitle" style="color:#64748b;margin-bottom:1.5rem;">Datos globales de ContaPerú</p>
+        <div class="empresa-info-grid">
+          <div class="empresa-info-block">
+            <div class="info-label"><i class="bi bi-building"></i> Nombre</div>
+            <div class="info-value" id="lNombre">—</div>
+          </div>
+          <div class="empresa-info-block">
+            <div class="info-label"><i class="bi bi-tag"></i> Sector</div>
+            <div class="info-value" id="lSector">—</div>
+          </div>
+          <div class="empresa-info-block">
+            <div class="info-label"><i class="bi bi-bullseye"></i> Misión</div>
+            <div class="info-value" id="lMision">—</div>
+          </div>
+          <div class="empresa-info-block">
+            <div class="info-label"><i class="bi bi-eye"></i> Visión</div>
+            <div class="info-value" id="lVision">—</div>
+          </div>
+          <div class="empresa-info-block full-width">
+            <div class="info-label"><i class="bi bi-star"></i> Valores corporativos</div>
+            <div class="valores-grid" id="lValores"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROYECTOS DEL ÁREA -->
+      <div id="proyectos" class="section-content">
+        <h1>Proyectos del área</h1>
+        <div class="proyectos-grid">
+          <div class="proyecto-card"><i class="bi bi-cloud-arrow-up"></i> <strong>Cloud Migration</strong><br>Avance: 80%<div class="progress-bar"><div style="width:80%"></div></div><br>Líder: Ana Ríos</div>
+          <div class="proyecto-card"><i class="bi bi-shield-lock"></i> <strong>Seguridad Informática</strong><br>Avance: 45%<div class="progress-bar"><div style="width:45%"></div></div><br>Líder: Jorge López</div>
+          <div class="proyecto-card"><i class="bi bi-diagram-3"></i> <strong>Optimización de procesos</strong><br>Avance: 30%<div class="progress-bar"><div style="width:30%"></div></div><br>Líder: Carla Mendoza</div>
+        </div>
+        <button class="btn-primary" id="nuevoProyectoBtn"><i class="bi bi-plus-circle"></i> Crear nuevo proyecto</button>
+      </div>
+
+      <!-- GESTIÓN DE EQUIPO -->
+      <div id="equipo" class="section-content">
+        <h1>Mi equipo</h1>
+        <table class="equipo-table">
+          <thead><tr><th>Nombre</th><th>Rol</th><th>Tareas asignadas</th><th>Completadas este mes</th><th>Acción</th></tr></thead>
+          <tbody>
+            <tr><td>Ana Ríos</td><td>Desarrolladora Senior</td><td>3</td><td>8</td><td><button class="btn-small asignar" data-miembro="Ana">Asignar tarea</button></td></tr>
+            <tr><td>Jorge López</td><td>Seguridad</td><td>2</td><td>5</td><td><button class="btn-small asignar" data-miembro="Jorge">Asignar tarea</button></td></tr>
+            <tr><td>Carla Mendoza</td><td>Analista de procesos</td><td>4</td><td>6</td><td><button class="btn-small asignar" data-miembro="Carla">Asignar tarea</button></td></tr>
+            <tr><td>Luis Torres</td><td>Soporte</td><td>2</td><td>4</td><td><button class="btn-small asignar" data-miembro="Luis">Asignar tarea</button></td></tr>
+          </tbody>
+        </table>
+        <button class="btn-primary" id="agregarMiembroBtn"><i class="bi bi-person-plus"></i> Agregar miembro al equipo</button>
+      </div>
+
+      <!-- TAREAS DEL ÁREA -->
+      <div id="tareas" class="section-content">
+        <h1>Tareas del área</h1>
+        <table class="tareas-table">
+          <thead><tr><th>Tarea</th><th>Proyecto</th><th>Asignado a</th><th>Fecha límite</th><th>Estado</th><th>Acción</th></tr></thead>
+          <tbody>
+            <tr><td>Actualizar documentación de infraestructura</td><td>Cloud Migration</td><td>Ana Ríos</td><td>2025-05-10</td><td>Pendiente</td><td><button class="btn-small editar">Editar</button></td></tr>
+            <tr><td>Revisar logs de seguridad</td><td>Seguridad Informática</td><td>Jorge López</td><td>2025-05-12</td><td>En progreso</td><td><button class="btn-small editar">Editar</button></td></tr>
+            <tr><td>Pruebas de migración a cloud</td><td>Cloud Migration</td><td>Luis Torres</td><td>2025-05-15</td><td>Pendiente</td><td><button class="btn-small editar">Editar</button></td></tr>
+          </tbody>
+        </table>
+        <button class="btn-primary" id="nuevaTareaBtn"><i class="bi bi-plus-circle"></i> Nueva tarea</button>
+      </div>
+
+      <!-- REPORTES DEL ÁREA -->
+      <div id="reportes" class="section-content">
+        <h1>Reportes del área</h1>
+        <div class="report-options">
+          <button class="btn-report" id="reporteProyectos"><i class="bi bi-folder2"></i> Avance de proyectos</button>
+          <button class="btn-report" id="reporteEquipo"><i class="bi bi-people"></i> Rendimiento del equipo</button>
+          <button class="btn-report" id="reporteGeneral"><i class="bi bi-file-spreadsheet"></i> Reporte general del área</button>
+        </div>
+        <div class="report-preview"><h3>Resumen ejecutivo del área</h3><p>Proyectos activos: 3 | Tareas completadas en el mes: 18 | Cumplimiento global: 74%</p><p>Riesgos identificados: 2 (retraso en pruebas de seguridad)</p></div>
+      </div>
+
+      <!-- RECURSOS -->
+      <div id="recursos" class="section-content">
+        <h1>Recursos del área</h1>
+        <div class="recursos-grid">
+          <div class="recurso-card"><i class="bi bi-laptop"></i> <strong>Equipamiento</strong><br>5 laptops + 2 servidores de prueba</div>
+          <div class="recurso-card"><i class="bi bi-people"></i> <strong>Capacitaciones</strong><br>Curso de Cloud (3 miembros)</div>
+          <div class="recurso-card"><i class="bi bi-calculator"></i> <strong>Presupuesto</strong><br>S/ 45,000 disponibles para Q2</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../js/LideresArea-Panel.js"></script>
+
+<!-- Modal cerrar sesión -->
+<div id="confirmarLogoutModal" class="m01-modal" style="display:none;">
+  <div class="m01-modal-content" style="max-width:400px;">
+    <div class="m01-modal-header">
+      <h3 style="display:flex;align-items:center;gap:0.5rem;"><i class="bi bi-box-arrow-right" style="color:#dc2626;"></i> Cerrar sesión</h3>
+      <button type="button" class="m01-modal-close" onclick="document.getElementById('confirmarLogoutModal').style.display='none'"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="m01-modal-body" style="text-align:center;padding:1.5rem;">
+      <p style="color:#475569;line-height:1.6;margin:0;font-size:0.92rem;">¿Está seguro de que desea cerrar la sesión actual?</p>
+    </div>
+    <div class="m01-modal-footer">
+      <button type="button" class="btn-secondary" onclick="document.getElementById('confirmarLogoutModal').style.display='none'">Cancelar</button>
+      <button type="button" class="btn-danger" onclick="confirmarLogout()"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

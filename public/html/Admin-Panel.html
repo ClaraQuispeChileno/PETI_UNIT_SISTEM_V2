@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Administrador | ContaPerú PETI</title>
+  <link rel="stylesheet" href="../css/Admin-Panel.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Librería para exportar PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-full"><h2>Conta<span>Perú</span></h2></div>
+      <div class="logo-small"><h2><span class="c">C</span><span class="p">P</span></h2></div>
+    </div>
+    <nav class="nav-menu">
+      <a href="#" class="nav-item active" data-section="dashboard"><i class="bi bi-speedometer2"></i><span> Dashboard</span></a>
+      <a href="#" class="nav-item" data-section="info-empresa"><i class="bi bi-building"></i><span> Info empresa</span></a>
+      <a href="#" class="nav-item" data-section="usuarios"><i class="bi bi-people"></i><span> Usuarios</span></a>
+      <a href="#" class="nav-item" data-section="auditoria"><i class="bi bi-journal-bookmark-fill"></i><span> Auditoría</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <button id="logoutBtn" class="logout-button"><i class="bi bi-box-arrow-right"></i><span> Cerrar sesión</span></button>
+      <p>v1.0.0 · ContaPerú S.A.C.</p>
+    </div>
+  </aside>
+  <main class="main-content">
+    <header class="top-bar">
+      <div class="user-info"><i class="bi bi-person-circle"></i> <span id="userNameDisplay"></span></div>
+      <div class="date" id="currentDate"></div>
+    </header>
+    <div class="dashboard-content">
+      <!-- DASHBOARD -->
+      <div id="dashboard" class="section-content active-section">
+        <h1>Panel de Administrador</h1> <br>
+        <div class="cards-grid-3col">
+          <div class="card"><div class="card-title">TOTAL USUARIOS</div><div class="card-value" id="totalUsuarios">0</div><div class="card-desc">registrados en el sistema</div></div>
+          <div class="card"><div class="card-title">ACTIVIDADES REGISTRADAS</div><div class="card-value" id="totalActividades">0</div><div class="card-desc">últimos 30 días</div></div>
+          <div class="card"><div class="card-title">ÚLTIMA ACTIVIDAD</div><div class="card-value" id="ultimaActividadFecha">—</div><div class="card-desc" id="ultimaActividadDesc">—</div></div>
+        </div>
+        <h2>Distribución por roles</h2>
+        <div class="cards-grid-4col" id="rolesGrid"></div>
+      </div>
+
+      <!-- INFO EMPRESA -->
+      <div id="info-empresa" class="section-content">
+        <div class="empresa-info-view">
+          <div class="empresa-header">
+            <span class="empresa-titulo" id="infoEmpresaNombre">—</span>
+            <span class="empresa-sector" id="infoEmpresaSector">—</span>
+          </div>
+          <div class="mision-vision-grid">
+            <div class="mision-card">
+              <h3><i class="bi bi-compass" style="color: #2563eb;"></i> Misión</h3>
+              <p id="infoEmpresaMision">No se ha registrado la misión de la empresa.</p>
+            </div>
+            <div class="vision-card">
+              <h3><i class="bi bi-eye" style="color: #2563eb;"></i> Visión</h3>
+              <p id="infoEmpresaVision">No se ha registrado la visión de la empresa.</p>
+            </div>
+          </div>
+          <div class="valores-section">
+            <h3><i class="bi bi-gem" style="color: #2563eb;"></i> Valores Corporativos</h3>
+            <div class="valores-grid" id="infoEmpresaValores"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GESTIÓN DE USUARIOS -->
+      <div id="usuarios" class="section-content">
+        <h1>Gestión de Usuarios</h1><br>
+        <button id="nuevoUsuarioBtn" class="btn-primary"><i class="bi bi-plus-circle"></i> Nuevo usuario</button>
+        <div class="busqueda-usuarios">
+          <label>Buscador:</label>
+          <input type="text" id="buscarUsuario" placeholder="Ingresar usuario o rol">
+        </div>
+        <div class="table-responsive">
+          <table class="tabla-auditoria">
+            <thead>
+              <tr><th>Usuario <i class="bi bi-arrow-down-up"></i></th>
+              <th>Rol <i class="bi bi-arrow-down-up"></i></th>
+              <th>Estado <i class="bi bi-arrow-down-up"></i></th>
+              <th>Acciones <i class="bi bi-arrow-down-up"></i></th>
+              </tr>
+            </thead>
+            <tbody id="tablaUsuariosBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- AUDITORÍA (sin columna módulo) -->
+      <div id="auditoria" class="section-content">
+        <h1>Registro de Auditoría</h1>
+        <div class="info-card"><i class="bi bi-database"></i> Los registros de auditoría se eliminan automáticamente después de 30 días.</div> <br>
+        <div class="filtros-auditoria">
+          <input type="text" id="filtroAuditoriaUsuario" placeholder="Usuario">
+          <select id="filtroAuditoriaAccion">
+            <option value="">Todas las acciones</option>
+            <option value="CREAR">CREAR</option>
+            <option value="ACTUALIZAR">ACTUALIZAR</option>
+            <option value="ELIMINAR">ELIMINAR</option>
+            <option value="EXPORTAR_CSV">EXPORTAR CSV</option>
+            <option value="EXPORTAR_PDF">EXPORTAR PDF</option>
+          </select>
+          <input type="date" id="filtroAuditoriaFecha">
+          <button id="exportarAuditoriaCSVBtn" class="btn-export-csv"><i class="bi bi-file-spreadsheet"></i> Exportar CSV</button>
+          <button id="exportarAuditoriaPDFBtn" class="btn-export-pdf"><i class="bi bi-file-pdf"></i> Exportar PDF</button>
+        </div>
+        <div class="table-responsive">
+          <table class="tabla-auditoria" id="tablaAuditoria">
+            <thead>
+              <tr>
+                <th data-col="fecha">Fecha <i class="bi bi-arrow-down-up"></i></th>
+                <th data-col="usuario_nombre">Usuario <i class="bi bi-arrow-down-up"></i></th>
+                <th data-col="accion">Acción <i class="bi bi-arrow-down-up"></i></th>
+                <th data-col="detalle">Detalle <i class="bi bi-arrow-down-up"></i></th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tablaAuditoriaBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL PARA CREAR/EDITAR USUARIO -->
+<div id="usuarioModal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3 id="modalTitle">Nuevo Usuario</h3>
+    <input type="hidden" id="editUserId">
+    <div class="edit-group"><label>Nombre de usuario <span style="color:#dc2626;">*</span></label><input type="text" id="modalUsername" placeholder="Ej. jperez" required></div> 
+    <div class="edit-group"><label>Rol</label>
+      <select id="modalRol">
+        <option value="administrador">Administrador</option>
+        <option value="estratega">Estratega</option>
+        <option value="lider">Líder de área</option>
+        <option value="operativo">Operativo</option>
+        <option value="aprobador">Aprobador</option>
+      </select>
+    </div>
+    <div class="edit-group">
+      <label>Contraseña <span style="color:#dc2626;">*</span></label>
+      <input type="password" id="modalPassword" placeholder="Mínimo 6 caracteres (obligatorio)" required>
+      <small style="color:#dc2626;">Campo obligatorio para nuevos usuarios. Mínimo 6 caracteres.</small>
+    </div>
+    <div class="edit-group">
+      <label>Activo</label>
+      <label class="toggle-switch">
+        <input type="checkbox" id="modalActivo" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="modal-buttons">
+      <button id="modalCancelBtn" class="btn-secondary">Cancelar</button>
+      <button id="modalSaveBtn" class="btn-primary">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PARA CONFIRMAR ELIMINACIÓN DE USUARIO -->
+<div id="confirmDeleteModal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Confirmar eliminación</h3>
+    <p id="confirmDeleteMsg">¿Está seguro de que desea eliminar este usuario?</p>
+    <div class="modal-buttons">
+      <button id="confirmDeleteCancelBtn" class="btn-secondary">Cancelar</button>
+      <button id="confirmDeleteAcceptBtn" class="btn-danger">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PARA CONFIRMAR CIERRE DE SESIÓN -->
+<div id="confirmLogoutModal" class="m01-modal" style="display:none;">
+  <div class="m01-modal-content" style="max-width:400px;">
+    <div class="m01-modal-header">
+      <h3 style="display:flex;align-items:center;gap:0.5rem;"><i class="bi bi-box-arrow-right" style="color:#dc2626;"></i> Cerrar sesión</h3>
+      <button type="button" class="m01-modal-close" id="confirmLogoutCancelBtn"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="m01-modal-body" style="text-align:center;padding:1.5rem;">
+      <p style="color:#475569;line-height:1.6;margin:0;font-size:0.92rem;">¿Está seguro de que desea cerrar la sesión actual?</p>
+    </div>
+    <div class="m01-modal-footer">
+      <button type="button" class="btn-secondary" id="confirmLogoutCancelBtnFooter">Cancelar</button>
+      <button type="button" class="btn-danger" id="confirmLogoutAcceptBtn"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PARA DETALLE DE AUDITORÍA -->
+<div id="detalleAuditoriaModal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3>Detalle de la actividad</h3>
+    <div id="detalleAuditoriaContenido"></div>
+    <div class="modal-buttons">
+      <button class="btn-secondary" onclick="cerrarModalDetalle()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../js/Admin-Panel.js"></script>
+</body>
+</html>

@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin | ContaPerú PETI</title>
+  <link rel="stylesheet" href="../css/Aprobador-Panel.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo"><h2>Conta<span>Perú</span></h2></div>
+    <nav class="nav-menu">
+      <a href="#" class="nav-item active" data-section="dashboard"><i class="bi bi-speedometer2"></i><span> Dashboard</span></a>
+      <a href="#" class="nav-item" data-section="empresa"><i class="bi bi-building"></i><span> Info empresa</span></a>
+      <a href="#" class="nav-item" data-section="planes"><i class="bi bi-files"></i><span> Planes generados</span></a>
+      <a href="#" class="nav-item" data-section="aprobar"><i class="bi bi-check2-circle"></i><span> Aprobar plan</span><span id="navAprobarBadge" class="nav-badge" style="display:none;">0</span></a>
+      <a href="#" class="nav-item" data-section="alertas"><i class="bi bi-exclamation-triangle"></i><span> Alertas</span><span id="navAlertasBadge" class="nav-badge" style="display:none;">0</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <button id="logoutBtn" class="logout-button"><i class="bi bi-box-arrow-right"></i><span> Cerrar sesión</span></button>
+      <p>v1.0.0 · ContaPerú S.A.C.</p>
+    </div>
+  </aside>
+  <main class="main-content">
+    <header class="top-bar">
+      <div class="user-info"><i class="bi bi-person-circle"></i> <span id="userNameDisplay"></span></div>
+        <div class="date" id="currentDate"></div>
+      </header>
+      <div class="dashboard-content">
+
+      <!-- ═══════════ DASHBOARD ═══════════ -->
+      <div id="dashboard" class="section-content active-section">
+        <h1>Dashboard</h1>
+        <div class="cards-grid">
+          <div class="card"><div class="card-title">TOTAL PLANES</div><div class="card-value" id="totalPlanes">0</div><div class="card-desc">registrados en el sistema</div></div>
+          <div class="card"><div class="card-title">PLANES ACTIVOS</div><div class="card-value" id="planesActivos">0</div><div class="card-desc">en funcionamiento</div></div>
+          <div class="card"><div class="card-title">EN REVISIÓN</div><div class="card-value" id="planesEnRevision">0</div><div class="card-desc">esperando aprobación</div></div>
+        </div>
+        <h2 style="margin-top: 2rem;">Últimas Actualizaciones de Planes</h2>
+        <div class="table-responsive">
+          <table class="tabla">
+            <thead><tr><th>Plan</th><th>Módulo Modificado</th><th>Estado</th><th>Fecha y Hora</th></tr></thead>
+            <tbody id="recentUpdatesBody"><tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:2rem;">Cargando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ═══════════ APROBAR PLAN ═══════════ -->
+      <div id="aprobar" class="section-content">
+        <h1>Aprobar Plan</h1>
+        <p id="aprobarSubtitle" style="color:#64748b;margin-bottom:1rem;">Cargando planes en revisión...</p>
+        <!-- Metrics row -->
+        <div class="metrics-row" id="aprobarMetrics">
+          <div class="metric-card"><div class="metric-label">Pendientes</div><div class="metric-value" id="metPendientes" style="color:#EF9F27;">0</div><div class="metric-sub">Esperando decisión</div></div>
+          <div class="metric-card"><div class="metric-label">Aprobados</div><div class="metric-value" id="metAprobados" style="color:#27500A;">0</div><div class="metric-sub">Este año</div></div>
+          <div class="metric-card"><div class="metric-label">Rechazados</div><div class="metric-value" id="metRechazados" style="color:#791F1F;">0</div><div class="metric-sub">Con observaciones</div></div>
+          <div class="metric-card"><div class="metric-label">Tiempo promedio</div><div class="metric-value" id="metTiempoProm">—</div><div class="metric-sub">Para aprobar</div></div>
+        </div>
+        <!-- Plan cards -->
+        <div id="aprobarPlanesList"></div>
+        <!-- Inline accordion reader -->
+        <div id="lecturaModulosPanel" class="lectura-panel" style="display:none;"></div>
+      </div>
+
+      <!-- ═══════════ INFO EMPRESA (M01 global) ═══════════ -->
+      <div id="empresa" class="section-content">
+        <h1>Información de la empresa</h1>
+        <p class="section-subtitle" style="color:#64748b;margin-bottom:1.5rem;">Datos globales de ContaPerú (visible para todos los roles)</p>
+        <div class="empresa-info-grid">
+          <div class="empresa-info-block">
+            <div class="info-label"><i class="bi bi-building"></i> Nombre</div>
+            <div class="info-value" id="aNombre">—</div>
+          </div>
+          <div class="empresa-info-block">
+            <div class="info-label"><i class="bi bi-tag"></i> Sector</div>
+            <div class="info-value" id="aSector">—</div>
+          </div>
+          <div class="empresa-info-block">
+            <div class="info-label"><i class="bi bi-bullseye"></i> Misión</div>
+            <div class="info-value" id="aMision">—</div>
+          </div>
+          <div class="empresa-info-block">
+            <div class="info-label"><i class="bi bi-eye"></i> Visión</div>
+            <div class="info-value" id="aVision">—</div>
+          </div>
+          <div class="empresa-info-block full-width">
+            <div class="info-label"><i class="bi bi-star"></i> Valores corporativos</div>
+            <div class="valores-grid" id="aValores"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ PLANES GENERADOS ═══════════ -->
+      <div id="planes" class="section-content">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;flex-wrap:wrap;gap:0.5rem;">
+          <div><h1>Planes generados</h1><p id="planesSubtitle" style="color:#64748b;">Cargando...</p></div>
+          <button id="nuevoPlanBtn" class="btn-primary"><i class="bi bi-plus-circle"></i> Crear nuevo plan</button>
+        </div>
+        <div class="inner-tabs" id="planesTabs">
+          <button class="itab active" data-tab="todos">Todos</button>
+          <button class="itab" data-tab="activo">Activos</button>
+          <button class="itab" data-tab="en_revision">En revisión</button>
+          <button class="itab" data-tab="borrador">Borradores</button>
+          <button class="itab" data-tab="archivado">Archivados</button>
+        </div>
+        <div id="planesCardsList"></div>
+      </div>
+
+      <!-- ═══════════ REPORTES ═══════════ -->
+      <div id="reportes" class="section-content">
+        <h1>Reportes</h1>
+        <p style="color:#64748b;margin-bottom:1rem;">Selecciona un plan para generar reportes ejecutivos</p>
+        <div class="reporte-selector-plan">
+          <label style="font-weight:600;display:block;margin-bottom:0.3rem;">Plan estratégico</label>
+          <select id="reportePlanSelector" style="max-width:400px;padding:0.6rem;border-radius:0.75rem;border:1px solid #cbd5e1;font-family:inherit;font-size:0.9rem;">
+            <option value="">-- Selecciona un plan --</option>
+          </select>
+        </div>
+        <div id="reportesContent" style="display:none;margin-top:1.5rem;">
+          <!-- Avance General -->
+          <div class="reporte-avance-card" data-reporte="avance_general">
+            <div class="reporte-avance-top">
+              <div class="reporte-icon" style="background:#EEEDFE;"><i class="bi bi-file-earmark-pdf" style="color:#534AB7;"></i></div>
+              <div>
+                <div class="reporte-avance-name">Reporte de Avance General</div>
+                <div class="reporte-desc">Todo el progreso del plan consolidado: módulos, KPIs, proyectos, BCG y FODA en un solo PDF ejecutivo.</div>
+              </div>
+              <button class="btn-descargar" onclick="descargarAvanceGeneral()"><i class="bi bi-download"></i> Descargar PDF</button>
+            </div>
+          </div>
+          <!-- Cards grid -->
+          <div id="reportesGrid" class="reportes-grid">
+            <div class="reporte-card disabled" data-reporte="resumen">
+              <div class="reporte-top">
+                <span class="update-badge" style="display:none;"><i class="bi bi-exclamation-circle"></i> Nueva actualización</span>
+                <div class="reporte-icon" style="background:#EEEDFE;"><i class="bi bi-file-text" style="color:#534AB7;"></i></div>
+                <div class="reporte-name">Resumen ejecutivo del plan</div>
+                <div class="reporte-desc">PETI consolidado: misión, visión, FODA, estrategia y CAME.</div>
+              </div>
+              <div class="reporte-foot reporte-card-actions">
+                <button class="btn-ver-detalles" style="display:none;" onclick="mostrarDetallesActualizacion('resumen')"><i class="bi bi-info-circle"></i> Ver detalles</button>
+                <button class="btn-descargar" disabled onclick="descargarReporte('resumen')"><i class="bi bi-download"></i> Descargar PDF</button>
+              </div>
+            </div>
+            <div class="reporte-card disabled" data-reporte="kpis">
+              <div class="reporte-top">
+                <span class="update-badge" style="display:none;"><i class="bi bi-exclamation-circle"></i> Nueva actualización</span>
+                <div class="reporte-icon" style="background:#EAF3DE;"><i class="bi bi-graph-up-arrow" style="color:#27500A;"></i></div>
+                <div class="reporte-name">Avance de KPIs del plan</div>
+                <div class="reporte-desc">Evolución de cada KPI vs su meta. Identifica KPIs en riesgo.</div>
+              </div>
+              <div class="reporte-foot reporte-card-actions">
+                <button class="btn-ver-detalles" style="display:none;" onclick="mostrarDetallesActualizacion('kpis')"><i class="bi bi-info-circle"></i> Ver detalles</button>
+                <button class="btn-descargar" disabled onclick="descargarReporte('kpis')"><i class="bi bi-download"></i> Descargar PDF</button>
+              </div>
+            </div>
+            <div class="reporte-card disabled" data-reporte="desempeno">
+              <div class="reporte-top">
+                <span class="update-badge" style="display:none;"><i class="bi bi-exclamation-circle"></i> Nueva actualización</span>
+                <div class="reporte-icon" style="background:#E1F5EE;"><i class="bi bi-people" style="color:#0F6E56;"></i></div>
+                <div class="reporte-name">Desempeño por área</div>
+                <div class="reporte-desc">% de tareas completadas a tiempo por área.</div>
+              </div>
+              <div class="reporte-foot reporte-card-actions">
+                <button class="btn-ver-detalles" style="display:none;" onclick="mostrarDetallesActualizacion('desempeno')"><i class="bi bi-info-circle"></i> Ver detalles</button>
+                <button class="btn-descargar" disabled onclick="descargarReporte('desempeno')"><i class="bi bi-download"></i> Descargar PDF</button>
+              </div>
+            </div>
+            <div class="reporte-card disabled" data-reporte="bcg">
+              <div class="reporte-top">
+                <span class="update-badge" style="display:none;"><i class="bi bi-exclamation-circle"></i> Nueva actualización</span>
+                <div class="reporte-icon" style="background:#FAEEDA;"><i class="bi bi-pie-chart" style="color:#633806;"></i></div>
+                <div class="reporte-name">Análisis BCG de servicios</div>
+                <div class="reporte-desc">Cuadrantes BCG con TCM, PRM y recomendaciones.</div>
+              </div>
+              <div class="reporte-foot reporte-card-actions">
+                <button class="btn-ver-detalles" style="display:none;" onclick="mostrarDetallesActualizacion('bcg')"><i class="bi bi-info-circle"></i> Ver detalles</button>
+                <button class="btn-descargar" disabled onclick="descargarReporte('bcg')"><i class="bi bi-download"></i> Descargar PDF</button>
+              </div>
+            </div>
+            <div class="reporte-card disabled" data-reporte="trazabilidad">
+              <div class="reporte-top">
+                <span class="update-badge" style="display:none;"><i class="bi bi-exclamation-circle"></i> Nueva actualización</span>
+                <div class="reporte-icon" style="background:#E6F1FB;"><i class="bi bi-git-branch" style="color:#0C447C;"></i></div>
+                <div class="reporte-name">Trazabilidad FODA</div>
+                <div class="reporte-desc">Origen de cada ítem FODA por módulo con puntajes.</div>
+              </div>
+              <div class="reporte-foot reporte-card-actions">
+                <button class="btn-ver-detalles" style="display:none;" onclick="mostrarDetallesActualizacion('trazabilidad')"><i class="bi bi-info-circle"></i> Ver detalles</button>
+                <button class="btn-descargar" disabled onclick="descargarReporte('trazabilidad')"><i class="bi bi-download"></i> Descargar PDF</button>
+              </div>
+            </div>
+          </div>
+          <div id="reportesRecientesSection" style="margin-top:1.5rem;">
+            <h2 style="font-size:0.9rem;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;margin-bottom:0.5rem;">Reportes generados recientemente</h2>
+            <div id="reportesRecientesList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ ALERTAS ═══════════ -->
+      <div id="alertas" class="section-content">
+        <h1>Alertas</h1>
+        <p id="alertasSubtitle" style="color:#64748b;margin-bottom:1rem;">Cargando alertas...</p>
+        <div class="metrics-row" id="alertasMetrics">
+          <div class="metric-card"><div class="metric-label">Críticas</div><div class="metric-value" id="aCriticas" style="color:#E24B4A;">0</div><div class="metric-sub">Acción urgente</div></div>
+          <div class="metric-card"><div class="metric-label">Advertencias</div><div class="metric-value" id="aAdvertencias" style="color:#EF9F27;">0</div><div class="metric-sub">Pueden empeorar</div></div>
+          <div class="metric-card"><div class="metric-label">Informativas</div><div class="metric-value" id="aInformativas" style="color:#3730a3;">0</div><div class="metric-sub">Solo lectura</div></div>
+          <div class="metric-card"><div class="metric-label">Revisadas hoy</div><div class="metric-value" id="aRevisadasHoy" style="color:#27500A;">0</div><div class="metric-sub">Esta semana</div></div>
+        </div>
+        <div class="inner-tabs" id="alertasTabs">
+          <button class="itab active" data-tab="todas">Todas</button>
+          <button class="itab" data-tab="critica">Críticas</button>
+          <button class="itab" data-tab="advertencia">Advertencias</button>
+          <button class="itab" data-tab="revisada">Revisadas</button>
+        </div>
+        <div id="alertasListContainer"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ═══════════ MODALES ═══════════ -->
+
+<!-- Rechazar plan -->
+<div id="rechazoModal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3 style="color:#dc2626;"><i class="bi bi-x-circle-fill"></i> Rechazar Plan</h3>
+    <p style="color:#475569;margin:1rem 0 0.5rem;">Indique el motivo del rechazo:</p>
+    <textarea id="motivoRechazo" rows="4" placeholder="Describa la razón por la cual el plan es rechazado..." style="width:100%;padding:0.7rem;border-radius:0.75rem;border:1px solid #cbd5e1;font-family:inherit;resize:none;"></textarea>
+    <input type="hidden" id="rechazoPlanId">
+    <div class="modal-buttons">
+      <button id="rechazoCancelBtn" class="btn-secondary">Cancelar</button>
+      <button id="rechazoConfirmBtn" class="btn-danger">Rechazar plan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Aprobar con observaciones -->
+<div id="observacionModal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3><i class="bi bi-journal-check" style="color:#633806;"></i> Aprobar con Observaciones</h3>
+    <p style="color:#475569;margin:1rem 0 0.5rem;">El plan será aprobado. Indique observaciones para el Estratega:</p>
+    <textarea id="observacionTexto" rows="4" placeholder="Observaciones o condiciones para esta aprobación..." style="width:100%;padding:0.7rem;border-radius:0.75rem;border:1px solid #cbd5e1;font-family:inherit;resize:none;"></textarea>
+    <input type="hidden" id="observacionPlanId">
+    <div class="modal-buttons">
+      <button id="obsCancelBtn" class="btn-secondary">Cancelar</button>
+      <button id="obsConfirmBtn" class="btn-primary">Aprobar plan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detalle plan -->
+<div id="detallePlanModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:700px;max-height:85vh;overflow-y:auto;">
+    <h3><i class="bi bi-file-earmark-text-fill"></i> Detalle del Plan</h3>
+    <div id="detallePlanContenido" style="margin-top:1rem;"></div>
+    <div class="modal-buttons"><button class="btn-secondary" onclick="cerrarDetallePlan()">Cerrar</button></div>
+  </div>
+</div>
+
+<!-- Nuevo plan -->
+<div id="nuevoPlanModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:520px;">
+    <h3><i class="bi bi-plus-circle-fill" style="color:#2563eb;"></i> Generar Nuevo Plan</h3>
+    <div class="edit-group"><label>Nombre del plan <span style="color:#dc2626;">*</span></label><input type="text" id="nuevoPlanNombre" placeholder="Ej: PETI 2027 - Transformación Digital"></div>
+    <div class="edit-group"><label>Año <span style="color:#dc2626;">*</span></label><input type="text" id="nuevoPlanAnio" readonly disabled class="input-disabled"></div>
+
+    <!-- Cronograma PETI -->
+    <div class="crono-section">
+      <div class="crono-section-title"><i class="bi bi-calendar-event"></i> Cronograma PETI</div>
+      <div class="crono-row">
+        <div class="edit-group" style="flex:1;">
+          <label>Fecha de inicio</label>
+          <input type="date" id="nuevoPlanFechaInicio" class="crono-input input-disabled" readonly disabled>
+        </div>
+        <div class="edit-group" style="flex:1;">
+          <label>Fecha de cierre <span style="color:#dc2626;">*</span></label>
+          <input type="date" id="nuevoPlanFechaFin" class="crono-input">
+        </div>
+      </div>
+      <div id="cronoPlazoWarning" class="crono-warning" style="display:none;">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <span id="cronoPlazoWarningText">El plazo supera los 45 días recomendados.</span>
+      </div>
+      <div id="cronoPlazoError" class="crono-error" style="display:none;">
+        <i class="bi bi-x-circle-fill"></i>
+        <span id="cronoPlazoErrorText">El plazo mínimo es de 15 días.</span>
+      </div>
+    </div>
+
+    <div class="edit-group"><label>Descripción</label><textarea id="nuevoPlanDescripcion" rows="3" placeholder="Breve descripción del plan..."></textarea></div>
+    <p style="color:#64748b;font-size:0.8rem;margin-bottom:0.5rem;">El plan se creará en estado <strong>Borrador</strong> para que el Estratega lo desarrolle.</p>
+    <div class="modal-buttons">
+      <button id="nuevoPlanCancelBtn" class="btn-secondary">Cancelar</button>
+      <button id="nuevoPlanSaveBtn" class="btn-primary"><i class="bi bi-plus-lg"></i> Crear plan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Editar cronograma -->
+<div id="editarCronogramaModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:520px;">
+    <h3><i class="bi bi-calendar-range" style="color:#d97706;"></i> Editar cronograma del plan</h3>
+    <input type="hidden" id="editarCronogramaPlanId">
+    <div class="crono-section">
+      <div class="crono-row">
+        <div class="edit-group" style="flex:1;">
+          <label>Fecha de inicio</label>
+          <input type="date" id="editarCronogramaFechaInicio" class="crono-input input-disabled" readonly disabled>
+        </div>
+        <div class="edit-group" style="flex:1;">
+          <label>Fecha de cierre <span style="color:#dc2626;">*</span></label>
+          <input type="date" id="editarCronogramaFechaFin" class="crono-input">
+        </div>
+      </div>
+      <div id="editCronoPlazoWarning" class="crono-warning" style="display:none;">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <span id="editCronoPlazoWarningText">El plazo supera los 45 días recomendados.</span>
+      </div>
+      <div id="editCronoPlazoError" class="crono-error" style="display:none;">
+        <i class="bi bi-x-circle-fill"></i>
+        <span id="editCronoPlazoErrorText">El plazo mínimo es de 15 días.</span>
+      </div>
+    </div>
+    <div class="edit-group">
+      <label>Motivo del cambio <span style="color:#dc2626;">*</span></label>
+      <textarea id="editarCronogramaMotivo" rows="3" placeholder="Describa la razón del cambio en el cronograma..." style="width:100%;padding:0.7rem;border-radius:0.75rem;border:1px solid #cbd5e1;font-family:inherit;resize:none;"></textarea>
+    </div>
+    <div class="modal-buttons">
+      <button id="editarCronogramaCancelBtn" class="btn-secondary">Cancelar</button>
+      <button id="editarCronogramaSaveBtn" class="btn-primary"><i class="bi bi-check-lg"></i> Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- Editar nombre/descripción de plan -->
+<div id="editarNombrePlanModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:520px;">
+    <h3><i class="bi bi-pencil-square" style="color:#2563eb;"></i> Editar plan</h3>
+    <input type="hidden" id="editarNombrePlanId">
+    <div class="edit-group" style="margin-top:0.8rem;"><label>Nombre del plan</label><input type="text" id="editarNombreInput" placeholder="Nombre del plan"></div>
+    <div class="edit-group"><label>Descripción</label><textarea id="editarDescripcionInput" rows="3" placeholder="Descripción del plan..."></textarea></div>
+    <div class="modal-buttons">
+      <button id="editarNombreCancelBtn" class="btn-secondary">Cancelar</button>
+      <button id="editarNombreSaveBtn" class="btn-primary"><i class="bi bi-check-lg"></i> Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Ver módulos del plan (reemplaza accordion inline) -->
+<div id="planModulosModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:720px;max-height:85vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <h3 style="margin:0;"><i class="bi bi-journal-text" style="color:#534AB7;"></i> <span id="planModulosTitulo">Módulos del Plan</span></h3>
+      <button class="btn-small btn-secondary" onclick="cerrarPlanModulosModal()"><i class="bi bi-x-lg"></i> Cerrar</button>
+    </div>
+    <div id="planModulosLista" style="display:flex;flex-direction:column;gap:0.6rem;"></div>
+  </div>
+</div>
+
+<!-- Confirmar eliminar plan -->
+<div id="confirmarEliminarPlanModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:420px;">
+    <h3 style="color:#dc2626;"><i class="bi bi-exclamation-triangle-fill"></i> Eliminar plan</h3>
+    <p style="color:#475569;margin:1rem 0;">¿Está seguro de eliminar permanentemente este plan?<br>Esta acción no se puede deshacer.</p>
+    <div class="modal-buttons">
+      <button class="btn-secondary" onclick="document.getElementById('confirmarEliminarPlanModal').style.display='none'">Cancelar</button>
+      <button id="confirmarEliminarPlanBtn" class="btn-danger" onclick="confirmarEliminarPlan()"><i class="bi bi-trash3"></i> Sí, eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmar inhabilitar plan -->
+<div id="confirmarInhabilitarPlanModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:420px;">
+    <h3 style="color:#d97706;"><i class="bi bi-slash-circle-fill"></i> Inhabilitar plan</h3>
+    <p style="color:#475569;margin:1rem 0;">¿Está seguro de inhabilitar este plan? Pasará a estado <strong>cerrado</strong> y dejará de estar visible en las vistas activas.</p>
+    <div class="modal-buttons">
+      <button class="btn-secondary" onclick="document.getElementById('confirmarInhabilitarPlanModal').style.display='none'">Cancelar</button>
+      <button id="confirmarInhabilitarPlanBtn" class="btn-inhabilitar" onclick="confirmarInhabilitarPlan()"><i class="bi bi-slash-circle"></i> Sí, inhabilitar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmar habilitar plan -->
+<div id="confirmarHabilitarPlanModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:420px;">
+    <h3 style="color:#2563eb;"><i class="bi bi-check2-circle"></i> Habilitar plan</h3>
+    <p style="color:#475569;margin:1rem 0;">¿Está seguro de habilitar este plan? Volverá a estado <strong>borrador</strong> para que el Estratega pueda editarlo.</p>
+    <div class="modal-buttons">
+      <button class="btn-secondary" onclick="document.getElementById('confirmarHabilitarPlanModal').style.display='none'">Cancelar</button>
+      <button id="confirmarHabilitarPlanBtn" class="btn-habilitar" onclick="confirmarHabilitarPlan()"><i class="bi bi-check2-circle"></i> Sí, habilitar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Escalar alerta -->
+<div id="escalarAlertaModal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3><i class="bi bi-send" style="color:#dc2626;"></i> Escalar al Estratega</h3>
+    <p style="color:#475569;margin:1rem 0 0.5rem;">Motivo del escalamiento:</p>
+    <textarea id="escalarMotivo" rows="3" placeholder="Describa por qué esta alerta se escala al Estratega..." style="width:100%;padding:0.7rem;border-radius:0.75rem;border:1px solid #cbd5e1;font-family:inherit;resize:none;"></textarea>
+    <input type="hidden" id="escalarPlanId">
+    <div class="modal-buttons">
+      <button id="escalarCancelBtn" class="btn-secondary">Cancelar</button>
+      <button id="escalarConfirmBtn" class="btn-danger">Escalar al Estratega</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detalles de actualización -->
+<div id="detallesActualizacionModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:650px;">
+    <h3><i class="bi bi-info-circle-fill" style="color:#EF9F27;"></i> Detalles de actualización</h3>
+    <p style="color:#475569;margin:0.5rem 0;">Cambios recientes detectados en <strong id="detallesTituloTipo"></strong>:</p>
+    <div id="detallesListaCambios" style="max-height:300px;overflow-y:auto;margin-bottom:0.5rem;"></div>
+    <p style="color:#94a3b8;font-size:0.7rem;">Al cerrar esta ventana, los cambios se marcarán como leídos.</p>
+    <div class="modal-buttons">
+      <button id="detallesCerrarBtn" class="btn-primary"><i class="bi bi-check-lg"></i> Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmar cerrar sesión -->
+<div id="confirmarLogoutModal" class="m01-modal" style="display:none;">
+  <div class="m01-modal-content" style="max-width:400px;">
+    <div class="m01-modal-header">
+      <h3 style="display:flex;align-items:center;gap:0.5rem;"><i class="bi bi-box-arrow-right" style="color:#dc2626;"></i> Cerrar sesión</h3>
+      <button type="button" class="m01-modal-close" onclick="document.getElementById('confirmarLogoutModal').style.display='none'"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="m01-modal-body" style="text-align:center;padding:1.5rem;">
+      <p style="color:#475569;line-height:1.6;margin:0;font-size:0.92rem;">¿Está seguro de que desea cerrar la sesión actual?</p>
+    </div>
+    <div class="m01-modal-footer">
+      <button type="button" class="btn-secondary" onclick="document.getElementById('confirmarLogoutModal').style.display='none'">Cancelar</button>
+      <button type="button" class="btn-danger" id="confirmarLogoutBtn" onclick="confirmarLogout()"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/Aprobador-Panel.js"></script>
+</body>
+</html>
