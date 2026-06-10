@@ -1,6 +1,4 @@
 // ==================== CONFIGURACIÓN DE SUPABASE ====================
-const SUPABASE_URL = 'https://ssdphnukjtjqageqfyeu.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_eb5lIWekDOh8Osk9IGydGA_Jw1MktBZ';
 let supabaseClient;
 let currentPlanId = null;
 let currentUser = null;
@@ -82,7 +80,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('Inicializando panel del estratega...');
   try {
     if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
-      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      supabaseClient = window.supabase.createClient(window.CONFIG.SUPABASE_URL, window.CONFIG.SUPABASE_ANON_KEY);
     } else {
       throw new Error('window.supabase no disponible');
     }

@@ -5,6 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 
+// CAMBIA AQUÍ los valores de tu nueva cuenta de Supabase
 const SUPABASE_URL = 'https://ssdphnukjtjqageqfyeu.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_eb5lIWekDOh8Osk9IGydGA_Jw1MktBZ';
 const SERVICE_KEY = SUPABASE_ANON_KEY; // Usar anon key (REST API)

@@ -4,6 +4,7 @@
 # ============================================================================
 param()
 
+# CAMBIA AQUÍ los valores de tu nueva cuenta de Supabase
 $SUPABASE_URL = "https://ssdphnukjtjqageqfyeu.supabase.co"
 $ANON_KEY = "sb_publishable_eb5lIWekDOh8Osk9IGydGA_Jw1MktBZ"
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path

@@ -1,8 +1,6 @@
 (function() {
   'use strict';
 
-  var SUPABASE_URL = 'https://ssdphnukjtjqageqfyeu.supabase.co';
-  var SUPABASE_ANON_KEY = 'sb_publishable_eb5lIWekDOh8Osk9IGydGA_Jw1MktBZ';
   var supabaseClient = null;
 
   function init() {
@@ -20,7 +18,7 @@
     // Crear cliente Supabase
     try {
       if (typeof window.supabase !== 'undefined' && typeof window.supabase.createClient === 'function') {
-        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        supabaseClient = window.supabase.createClient(window.CONFIG.SUPABASE_URL, window.CONFIG.SUPABASE_ANON_KEY);
         console.log('[Login] Supabase client creado');
       } else {
         console.error('[Login] window.supabase no disponible');

@@ -1,6 +1,6 @@
 // ==================== CONFIGURACIÓN ====================
-const SUPABASE_URL = 'https://ssdphnukjtjqageqfyeu.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_eb5lIWekDOh8Osk9IGydGA_Jw1MktBZ';
+const SUPABASE_URL = () => window.CONFIG.SUPABASE_URL;
+const SUPABASE_ANON_KEY = () => window.CONFIG.SUPABASE_ANON_KEY;
 let supabaseClient;
 let currentUser = null;
 let allUsers = [];
@@ -13,7 +13,7 @@ let pendingDelete = null;
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
-      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      supabaseClient = window.supabase.createClient(SUPABASE_URL(), SUPABASE_ANON_KEY());
     } else {
       throw new Error('window.supabase no disponible');
     }
@@ -232,7 +232,7 @@ async function actualizarPassword(userId, newPassword) {
   const session = localStorage.getItem('peti_session');
   if (!session) throw new Error('No hay sesión');
   const { access_token } = JSON.parse(session);
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/update-password`, {
+  const response = await fetch(`${SUPABASE_URL()}/functions/v1/update-password`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
