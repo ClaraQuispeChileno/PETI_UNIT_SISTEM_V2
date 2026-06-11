@@ -3533,6 +3533,8 @@ function setupNavigation() {
         }
       } else if (sectionId === 'm06') {
         if (typeof window.cargarPorter === 'function') window.cargarPorter();
+      } else if (sectionId === 'm07') {
+        if (typeof window.cargarPest === 'function') window.cargarPest();
       } else if (sectionId === 'notificaciones') {
         await cargarNotificacionesEstratega();
       }

@@ -143,39 +143,43 @@ function finalizar() {
   else recs.push("Sector ATRACTIVO. Alta viabilidad para inversion.");
   if (Object.values(proms).filter(function(p){return p>=3.8;}).length >= 3) recs.push("ALERTA: 3+ fuerzas con intensidad ALTA. Viabilidad comprometida.");
 
-  try {
-    supabaseClient.from("porter_resultados").upsert({
-      plan_id: currentPlanId, usuario_id: currentUser.id, estado:"procesado",
-      resultados:{ promedios:proms, respuestas:respuestas }, recomendaciones:recs
-    }, { onConflict:"plan_id" });
-    supabaseClient.from("plan_contenido").upsert({
+  var ok = true;
+
+  supabaseClient.from("porter_resultados").upsert({
+    plan_id: currentPlanId, usuario_id: currentUser ? currentUser.id : null, estado:"procesado",
+    resultados:{ promedios:proms, respuestas:respuestas }, recomendaciones:recs
+  }, { onConflict:"plan_id" }).then(function() {
+    return supabaseClient.from("plan_contenido").upsert({
       plan_id: currentPlanId, modulo_id:"M06",
       contenido:{ promedios:proms, respuestas:respuestas },
       completado:true, completado_fecha: new Date()
     }, { onConflict:"plan_id, modulo_id" });
-    supabaseClient.from("auditoria").insert({
-      usuario_id: currentUser.id, modulo:"M06",
+  }).then(function() {
+    return supabaseClient.from("auditoria").insert({
+      usuario_id: currentUser ? currentUser.id : null, modulo:"M06",
       accion: completadoPreviamente ? "ACTUALIZAR" : "CREAR",
       detalle:"Analisis de las 5 Fuerzas de Porter completado."
     });
-  } catch(e) { console.error("Error guardando Porter:", e); }
-
-  sincFoda();
-
-  completadoPreviamente = true;
-  var badge = document.getElementById("m06EstadoBadge");
-  if (badge) { badge.innerText = "Procesado"; badge.className = "m05-badge-progreso procesado"; }
-  var wc = document.getElementById("porterWizardContainer"); if (wc) wc.style.display = "none";
-  var rc = document.getElementById("porterResultsContainer"); if (rc) rc.style.display = "block";
-  document.getElementById("m06").scrollIntoView({ behavior:"smooth", block:"start" });
-  mostrarResultados();
-  if (typeof showToast !== "undefined") showToast("Analisis Porter guardado.", "success");
-  if (typeof cargarDashboard !== "undefined") cargarDashboard();
+  }).then(function() {
+    return sincFoda();
+  }).then(function() {
+    completadoPreviamente = true;
+    var badge = document.getElementById("m06EstadoBadge");
+    if (badge) { badge.innerText = "Procesado"; badge.className = "m05-badge-progreso procesado"; }
+    var wc = document.getElementById("porterWizardContainer"); if (wc) wc.style.display = "none";
+    var rc = document.getElementById("porterResultsContainer"); if (rc) rc.style.display = "block";
+    document.getElementById("m06").scrollIntoView({ behavior:"smooth", block:"start" });
+    mostrarResultados();
+    if (typeof showToast !== "undefined") showToast("Analisis Porter guardado.", "success");
+    if (typeof cargarDashboard !== "undefined") cargarDashboard();
+  }).catch(function(e) {
+    console.error("Error finalizarPorter:", e);
+    if (typeof showToast !== "undefined") showToast("Error al guardar: " + e.message, "error");
+  });
 }
 
 function sincFoda() {
-  try {
-    supabaseClient.from("foda").select("*").eq("plan_id", currentPlanId).then(function(res) {
+  return supabaseClient.from("foda").select("*").eq("plan_id", currentPlanId).then(function(res) {
       var items = res.data || [];
       preguntasPorter.forEach(function(f) {
         f.variables.forEach(function(v, i) {
@@ -192,7 +196,6 @@ function sincFoda() {
         });
       });
     }).catch(function(e){ console.error("Error FODA Porter:", e); });
-  } catch(e2) { console.error("Error sincFoda:", e2); }
 }
 
 function mostrarResultados() {
@@ -265,29 +268,62 @@ function renderRadar(proms) {
   } catch(e) { console.error("Error renderRadar:", e); }
 }
 
+function mostrarResultadosUI() {
+  completadoPreviamente = true;
+  var badge = document.getElementById("m06EstadoBadge"); if (badge) { badge.innerText = "Procesado"; badge.className = "m05-badge-progreso procesado"; }
+  var ab = document.getElementById("m06AlertBanner"); if (ab) ab.style.display = "flex";
+  var wc = document.getElementById("porterWizardContainer"); if (wc) wc.style.display = "none";
+  var rc = document.getElementById("porterResultsContainer"); if (rc) rc.style.display = "block";
+  mostrarResultados();
+}
+
+function mostrarWizardUI() {
+  completadoPreviamente = false;
+  var badge = document.getElementById("m06EstadoBadge"); if (badge) { badge.innerText = Object.keys(respuestas).length ? "En edicion" : "No iniciado"; badge.className = "m05-badge-progreso" + (Object.keys(respuestas).length ? " edicion" : ""); }
+  var ab = document.getElementById("m06AlertBanner"); if (ab) ab.style.display = "none";
+  var wc = document.getElementById("porterWizardContainer"); if (wc) wc.style.display = "block";
+  var rc = document.getElementById("porterResultsContainer"); if (rc) rc.style.display = "none";
+  currentStep = 1; renderStepper(); renderBlock();
+}
+
 function cargarPorter() {
   try {
     if (typeof currentPlanId === "undefined" || !currentPlanId) return;
+
+    // 1. Intentar carga desde tabla especializada porter_resultados
     supabaseClient.from("porter_resultados").select("*").eq("plan_id", currentPlanId).single().then(function(res) {
       var data = res.data;
       if (res.error && res.error.code === "42P01") data = null;
-      var badge = document.getElementById("m06EstadoBadge");
+
       if (data && data.estado === "procesado") {
         respuestas = data.resultados && data.resultados.respuestas ? data.resultados.respuestas : {};
-        completadoPreviamente = true;
-        if (badge) { badge.innerText = "Procesado"; badge.className = "m05-badge-progreso procesado"; }
-        var ab = document.getElementById("m06AlertBanner"); if (ab) ab.style.display = "flex";
-        var wc = document.getElementById("porterWizardContainer"); if (wc) wc.style.display = "none";
-        var rc = document.getElementById("porterResultsContainer"); if (rc) rc.style.display = "block";
-        mostrarResultados();
-      } else {
-        respuestas = (data && data.resultados && data.resultados.respuestas) ? data.resultados.respuestas : {};
-        if (badge) { badge.innerText = Object.keys(respuestas).length ? "En edicion" : "No iniciado"; badge.className = "m05-badge-progreso" + (Object.keys(respuestas).length ? " edicion" : ""); }
-        var ab2 = document.getElementById("m06AlertBanner"); if (ab2) ab2.style.display = "none";
-        var wc2 = document.getElementById("porterWizardContainer"); if (wc2) wc2.style.display = "block";
-        var rc2 = document.getElementById("porterResultsContainer"); if (rc2) rc2.style.display = "none";
-        currentStep = 1; renderStepper(); renderBlock();
+        mostrarResultadosUI();
+        return;
       }
+
+      // 2. Fallback: intentar desde plan_contenido (legacy)
+      supabaseClient.from("plan_contenido").select("contenido").eq("plan_id", currentPlanId).eq("modulo_id", "M06").single().then(function(legacy) {
+        var legacyData = legacy.data;
+        if (legacyData && legacyData.contenido && legacyData.contenido.respuestas) {
+          respuestas = legacyData.contenido.respuestas;
+          // Migrar automaticamente a porter_resultados
+          var proms = {}; preguntasPorter.forEach(function(f){proms[f.fuerza] = promedio(f.fuerza);});
+          supabaseClient.from("porter_resultados").upsert({
+            plan_id: currentPlanId, usuario_id: currentUser ? currentUser.id : null, estado:"procesado",
+            resultados:{ promedios:proms, respuestas:respuestas }
+          }, { onConflict:"plan_id" }).catch(function(){});
+          mostrarResultadosUI();
+          return;
+        }
+        // 3. Sin datos en ninguna tabla
+        respuestas = {};
+        mostrarWizardUI();
+      }).catch(function() {
+        // plan_contenido no tiene datos (PGRST116)
+        respuestas = {};
+        mostrarWizardUI();
+      });
+
     }).catch(function(e) { console.error("Error cargarPorter DB:", e); });
   } catch(e2) { console.error("Error en cargarPorter:", e2); }
 }

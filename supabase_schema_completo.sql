@@ -407,7 +407,20 @@ CREATE TABLE IF NOT EXISTS porter_resultados (
 );
 
 -- ============================================================================
--- 27. FUNCIÓN: limpiar_auditoria (elimina registros mayores a 30 días)
+-- 27. TABLA: pest_resultados (M07 - Análisis PEST)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS pest_resultados (
+  plan_id INT NOT NULL UNIQUE REFERENCES planes(id),
+  usuario_id INT REFERENCES usuarios(id),
+  estado VARCHAR(20) NOT NULL DEFAULT 'en_edicion' CHECK (estado IN ('en_edicion', 'procesado')),
+  resultados JSONB NOT NULL DEFAULT '{}',
+  recomendaciones JSONB DEFAULT '[]',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================================================
+-- 28. FUNCIÓN: limpiar_auditoria (elimina registros mayores a 30 días)
 -- ============================================================================
 CREATE OR REPLACE FUNCTION limpiar_auditoria()
 RETURNS void
