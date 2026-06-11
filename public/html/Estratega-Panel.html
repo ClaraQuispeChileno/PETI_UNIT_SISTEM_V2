@@ -785,7 +785,58 @@
         </div>
       </div>
 
-      <div id="m06" class="section-content"><h1>5 Fuerzas de Porter</h1><div class="edit-group"><label>Contenido (JSON)</label><textarea id="m06Contenido" rows="8" placeholder='{"rivalidad":4,"nuevosEntrantes":3,"poderClientes":4,"poderProveedores":2,"sustitutos":3}'></textarea></div><button id="saveM06" class="btn-primary">Guardar cambios</button></div>
+      <div id="m06" class="section-content">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
+          <div>
+            <h1 style="font-size:1.8rem;font-weight:800;color:#0f172a;margin:0;letter-spacing:-0.02em;">5 Fuerzas de Porter</h1>
+            <p style="color:#64748b;font-size:0.92rem;margin:0.25rem 0 0 0;">Módulo M06 · Analisis del microentorno competitivo (1 = menor impacto, 5 = mayor impacto)</p>
+          </div>
+          <span class="m05-badge-progreso" id="m06EstadoBadge">No iniciado</span>
+        </div>
+        <div id="m06AlertBanner" class="m05-alert-banner" style="display:none;"><i class="bi bi-info-circle-fill"></i><span id="m06AlertText">Este plan ya cuenta con un analisis Porter procesado.</span></div>
+        <div id="porterWizardContainer">
+          <div class="m01-tip-banner" id="m06TipBanner"><i class="bi bi-lightbulb-fill" style="color:#f59e0b;"></i><span id="m06TipText">Evalue el impacto de cada variable de la fuerza en el sector.</span></div>
+          <div class="wizard-stepper-container">
+            <div class="wizard-stepper" id="porterStepper">
+              <div class="stepper-progress-line" id="porterStepperProgressLine"></div>
+              <div class="stepper-step active" data-step="1"><div class="stepper-circle">1</div><span class="stepper-step-label">N.Entr.</span></div>
+              <div class="stepper-step locked" data-step="2"><div class="stepper-circle">2</div><span class="stepper-step-label">Rival.</span></div>
+              <div class="stepper-step locked" data-step="3"><div class="stepper-circle">3</div><span class="stepper-step-label">Sustit.</span></div>
+              <div class="stepper-step locked" data-step="4"><div class="stepper-circle">4</div><span class="stepper-step-label">Compr.</span></div>
+              <div class="stepper-step locked" data-step="5"><div class="stepper-circle">5</div><span class="stepper-step-label">Prov.</span></div>
+            </div>
+            <div class="stepper-current-label" id="porterStepperCurrentLabel"></div>
+          </div>
+          <div class="bloque-card-premium">
+            <div class="bloque-card-header"><h2 id="porterBloqueTitulo">NUEVOS ENTRANTES</h2><div class="bloque-progress-bar" id="porterProgress" style="display:flex!important;align-items:center;gap:0.5rem;"><div class="bar-track" style="width:100px;height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;"><div class="bar-fill" id="porterBarFill" style="height:100%;background:linear-gradient(90deg,#2563eb,#3b82f6);border-radius:3px;transition:width 0.4s;width:0%;"></div></div><span class="bar-label" id="porterBarLabel" style="font-size:0.78rem;font-weight:700;color:#64748b;">0/0</span></div></div>
+            <div id="porterCuestionario" class="cuestionario-container"></div>
+            <div class="bloque-card-footer">
+              <div class="puntaje-acumulado-col">Promedio: <strong id="porterPromedio">—</strong></div>
+              <div class="potencial-col"><span id="porterClasif" class="potencial-pill">—</span></div>
+            </div>
+          </div>
+          <div class="wizard-footer-nav">
+            <button id="porterCancelBtn" class="btn-secondary" style="display:none;">Cancelar</button>
+            <button id="porterPrevBtn" class="btn-secondary" disabled><i class="bi bi-arrow-left"></i> Anterior</button>
+            <button id="porterNextBtn" class="btn-primary" disabled>Siguiente <i class="bi bi-arrow-right"></i></button>
+          </div>
+        </div>
+        <div id="porterResultsContainer" class="resultados-finales-container" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
+            <div><h2 style="font-size:1.6rem;font-weight:800;color:#0f172a;">Analisis Porter Completado</h2><p style="color:#64748b;font-size:0.92rem;">Intensidad competitiva y recomendaciones.</p></div>
+            <button class="btn-actualizar-cadena" id="porterBackBtn">Actualizar analisis</button>
+          </div>
+          <div class="resumen-cards-grid">
+            <div class="resumen-card-premium"><span class="card-label">Intensidad Competitiva</span><div class="clasificacion-total-premium" id="porterIntensidad">—</div><p class="card-subtext" id="porterIntensidadTxt">—</p></div>
+            <div class="resumen-card-premium"><span class="card-label">Fuerza Dominante</span><div class="puntaje-total-premium" id="porterDominante">—</div><p class="card-subtext" id="porterDominanteTxt">—</p></div>
+            <div class="resumen-card-premium"><span class="card-label">Recomendacion</span><div class="clasificacion-total-premium" id="porterRec">—</div><p class="card-subtext" id="porterRecTxt">—</p></div>
+          </div>
+          <div class="bloques-breakdown" id="porterBreakdown"></div>
+          <div class="radar-box"><h3>Perfil del Entorno Competitivo</h3><div class="radar-canvas-container"><canvas id="porterRadarChart"></canvas></div></div>
+          <div class="trazabilidad-seccion"><div class="trazabilidad-seccion-header fortalezas"><h3>Oportunidades (Fuerzas de bajo impacto)</h3><span class="count-badge" id="porterCountOp">0</span></div><table class="foda-premium-table" id="porterTablaOp"><thead><tr><th>Fuerza</th><th>Variable</th><th style="text-align:center;">Puntaje</th></tr></thead><tbody></tbody></table></div>
+          <div class="trazabilidad-seccion"><div class="trazabilidad-seccion-header debilidades"><h3>Amenazas (Fuerzas de alto impacto)</h3><span class="count-badge" id="porterCountAm">0</span></div><table class="foda-premium-table" id="porterTablaAm"><thead><tr><th>Fuerza</th><th>Variable</th><th style="text-align:center;">Puntaje</th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
       <div id="m07" class="section-content"><h1>Análisis PEST</h1><div class="edit-group"><label>Contenido (JSON)</label><textarea id="m07Contenido" rows="8" placeholder='{"politico":70,"economico":65,"social":80,"tecnologico":90,"ambiental":60}'></textarea></div><button id="saveM07" class="btn-primary">Guardar cambios</button></div>
       <div id="m08" class="section-content"><h1>Matriz FODA</h1><div class="edit-group"><label>Contenido (JSON)</label><textarea id="m08Contenido" rows="8" placeholder='{"fortalezas":["Equipo calificado"],"debilidades":[],"oportunidades":[],"amenazas":[]}'></textarea></div><button id="saveM08" class="btn-primary">Guardar cambios</button></div>
       <div id="m09" class="section-content"><h1>Matriz CAME</h1><div class="edit-group"><label>Contenido (JSON)</label><textarea id="m09Contenido" rows="8" placeholder='{"corregir":"...","afrontar":"...","mantener":"...","explotar":"..."}'></textarea></div><button id="saveM09" class="btn-primary">Guardar cambios</button></div>
@@ -817,6 +868,7 @@
 
 <script src="../js/config.js"></script>
 <script src="../js/bcgService.js"></script>
+<script src="../js/porterController.js"></script>
 <script src="../js/Estratega-Panel.js"></script>
 </body>
 </html>

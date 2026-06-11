@@ -394,7 +394,20 @@ CREATE TABLE IF NOT EXISTS matriz_bcg (
 );
 
 -- ============================================================================
--- 26. FUNCIÓN: limpiar_auditoria (elimina registros mayores a 30 días)
+-- 26. TABLA: porter_resultados (M06 - 5 Fuerzas de Porter)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS porter_resultados (
+  plan_id INT NOT NULL UNIQUE REFERENCES planes(id),
+  usuario_id INT REFERENCES usuarios(id),
+  estado VARCHAR(20) NOT NULL DEFAULT 'en_edicion' CHECK (estado IN ('en_edicion', 'procesado')),
+  resultados JSONB NOT NULL DEFAULT '{}',
+  recomendaciones JSONB DEFAULT '[]',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================================================
+-- 27. FUNCIÓN: limpiar_auditoria (elimina registros mayores a 30 días)
 -- ============================================================================
 CREATE OR REPLACE FUNCTION limpiar_auditoria()
 RETURNS void

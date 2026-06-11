@@ -3098,7 +3098,7 @@ function toggleEditableUI() {
   const saveM01 = document.getElementById('saveM01');
   if (saveM01) saveM01.style.display = isEditable ? 'inline-block' : 'none';
   
-  ['m06','m07','m08','m09'].forEach(mod => {
+  ['m07','m08','m09'].forEach(mod => {
     const btn = document.getElementById(`save${mod.toUpperCase()}`);
     if (btn) btn.style.display = isEditable ? 'inline-block' : 'none';
   });
@@ -3339,7 +3339,8 @@ function setupEventListeners() {
   }
 
   ['m06','m07','m08','m09'].forEach(mod => {
-    document.getElementById(`save${mod.toUpperCase()}`).onclick = () => {
+    const btn = document.getElementById(`save${mod.toUpperCase()}`);
+    if(btn) btn.onclick = () => {
       let contenido;
       try { contenido = JSON.parse(document.getElementById(`${mod}Contenido`).value); }
       catch(e) { alert('JSON inválido'); return; }
@@ -3530,6 +3531,8 @@ function setupNavigation() {
         if (!data || data.estado === 'en_edicion') {
           await adquirirBloqueoBCG();
         }
+      } else if (sectionId === 'm06') {
+        if (typeof window.cargarPorter === 'function') window.cargarPorter();
       } else if (sectionId === 'notificaciones') {
         await cargarNotificacionesEstratega();
       }
