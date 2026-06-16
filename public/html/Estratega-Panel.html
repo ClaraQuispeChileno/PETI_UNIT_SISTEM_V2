@@ -890,7 +890,58 @@
           <div class="trazabilidad-seccion"><div class="trazabilidad-seccion-header debilidades"><h3>Amenazas (normalizado mayor a 0.65)</h3><span class="count-badge" id="pestCountAm">0</span></div><table class="foda-premium-table" id="pestTablaAm"><thead><tr><th>Factor</th><th>Detalle</th><th style="text-align:center;">Promedio</th></tr></thead><tbody></tbody></table></div>
         </div>
       </div>
-      <div id="m08" class="section-content"><h1>Matriz FODA</h1><div class="edit-group"><label>Contenido (JSON)</label><textarea id="m08Contenido" rows="8" placeholder='{"fortalezas":["Equipo calificado"],"debilidades":[],"oportunidades":[],"amenazas":[]}'></textarea></div><button id="saveM08" class="btn-primary">Guardar cambios</button></div>
+      <!-- MÓDULO M08: MATRIZ DAFO -->
+      <div id="m08" class="section-content">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
+          <div>
+            <h1 style="font-size:1.8rem;font-weight:800;color:#0f172a;margin:0;letter-spacing:-0.02em;">Matriz DAFO</h1>
+            <p style="color:#64748b;font-size:0.92rem;margin:0.25rem 0 0 0;">Cruce estrategico de factores internos (F/D) y externos (O/A). Escala: 0 (total desacuerdo) a 4 (total acuerdo)</p>
+          </div>
+          <span class="m05-badge-progreso" id="m08EstadoBadge">No iniciado</span>
+        </div>
+        <div id="dafoAlertBanner" class="m05-alert-banner" style="display:none;"><i class="bi bi-info-circle-fill"></i><span id="dafoAlertText">Este plan ya cuenta con una Matriz DAFO procesada.</span></div>
+        <div id="dafoWizardContainer">
+          <div class="m01-tip-banner"><i class="bi bi-lightbulb-fill" style="color:#f59e0b;"></i><span>Puntue cada relacion estrategica de 0 a 4 segun el grado de influencia entre los factores.</span></div>
+
+          <h3 style="font-size:1rem;font-weight:700;color:#0f172a;margin-bottom:1rem;">Factores Identificados</h3>
+          <div id="dafoFactoresGrid"></div>
+
+          <h3 style="font-size:1rem;font-weight:700;color:#0f172a;margin:1.5rem 0 0.75rem;">Evaluacion de Relaciones Estrategicas</h3>
+          <p style="color:#64748b;font-size:0.85rem;margin-bottom:0.75rem;">Puntue cada cruce: 0 = total desacuerdo, 4 = total acuerdo</p>
+          <div class="dafo-tabs" id="dafoTabs"></div>
+          <div id="dafoMatrixContent"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1rem;padding:0.75rem 1rem;background:#f8fafc;border-radius:0.75rem;border:1px solid #e2e8f0;">
+            <div style="font-size:0.95rem;font-weight:600;color:#1e293b;" id="dafoTotalPuntaje">Puntaje total: 0</div>
+          </div>
+
+          <h3 style="font-size:1rem;font-weight:700;color:#0f172a;margin:1.5rem 0 0.75rem;">Sintesis de Resultados</h3>
+          <div class="dafo-synthesis" style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1rem;">
+            <div class="resumen-card-premium" style="flex:1;min-width:120px;"><span class="card-label">FO - Ofensiva</span><div class="puntaje-total-premium" id="dafoResultFO">0</div><p class="card-subtext" id="dafoPctFO">0%</p></div>
+            <div class="resumen-card-premium" style="flex:1;min-width:120px;"><span class="card-label">FA - Defensiva</span><div class="puntaje-total-premium" id="dafoResultFA">0</div><p class="card-subtext" id="dafoPctFA">0%</p></div>
+            <div class="resumen-card-premium" style="flex:1;min-width:120px;"><span class="card-label">DO - Reorientacion</span><div class="puntaje-total-premium" id="dafoResultDO">0</div><p class="card-subtext" id="dafoPctDO">0%</p></div>
+            <div class="resumen-card-premium" style="flex:1;min-width:120px;"><span class="card-label">DA - Supervivencia</span><div class="puntaje-total-premium" id="dafoResultDA">0</div><p class="card-subtext" id="dafoPctDA">0%</p></div>
+          </div>
+          <div style="text-align:center;font-size:1rem;font-weight:700;color:#059669;margin-bottom:1rem;" id="dafoWinner">—</div>
+
+          <div class="wizard-footer-nav">
+            <button id="dafoCancelBtn" class="btn-secondary">Reiniciar puntajes</button>
+            <button id="dafoGuardarBtn" class="btn-primary" style="background:#2563eb;color:white;"><i class="bi bi-check-lg"></i> Guardar Matriz DAFO</button>
+          </div>
+        </div>
+        <div id="dafoResultsContainer" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
+            <div><h2 style="font-size:1.6rem;font-weight:800;color:#0f172a;">Matriz DAFO Procesada</h2><p style="color:#64748b;font-size:0.92rem;">Resultados del cruce estrategico de factores.</p></div>
+            <button class="btn-actualizar-cadena" id="dafoBackBtn"><i class="bi bi-arrow-repeat"></i> Editar matriz</button>
+          </div>
+          <div id="dafoResultsBody"></div>
+          <div class="dafo-synthesis" style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:1rem;">
+            <div class="resumen-card-premium" style="flex:1;min-width:120px;"><span class="card-label">FO - Ofensiva</span><div class="puntaje-total-premium" id="dafoResultFO2">0</div></div>
+            <div class="resumen-card-premium" style="flex:1;min-width:120px;"><span class="card-label">FA - Defensiva</span><div class="puntaje-total-premium" id="dafoResultFA2">0</div></div>
+            <div class="resumen-card-premium" style="flex:1;min-width:120px;"><span class="card-label">DO - Reorientacion</span><div class="puntaje-total-premium" id="dafoResultDO2">0</div></div>
+            <div class="resumen-card-premium" style="flex:1;min-width:120px;"><span class="card-label">DA - Supervivencia</span><div class="puntaje-total-premium" id="dafoResultDA2">0</div></div>
+          </div>
+        </div>
+      </div>
       <div id="m09" class="section-content"><h1>Matriz CAME</h1><div class="edit-group"><label>Contenido (JSON)</label><textarea id="m09Contenido" rows="8" placeholder='{"corregir":"...","afrontar":"...","mantener":"...","explotar":"..."}'></textarea></div><button id="saveM09" class="btn-primary">Guardar cambios</button></div>
 
       <!-- KPIs e Iniciativas -->
@@ -922,6 +973,7 @@
 <script src="../js/bcgService.js"></script>
 <script src="../js/porterController.js"></script>
 <script src="../js/pestController.js"></script>
+<script src="../js/dafoController.js"></script>
 <script src="../js/Estratega-Panel.js"></script>
 </body>
 </html>

@@ -3164,3 +3164,25 @@
 .overdue-banner strong {
   color: #7f1d1d;
 }
+
+/* ==================== DAFO (M08) ==================== */
+.dafo-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:1.5rem; }
+.dafo-tabs { display:flex; gap:0.25rem; margin-bottom:0.75rem; flex-wrap:wrap; }
+.dafo-tab { padding:0.5rem 1rem; border:1px solid #e2e8f0; background:#fff; border-radius:0.5rem; cursor:pointer; font-size:0.8rem; font-weight:600; color:#64748b; transition:0.2s; }
+.dafo-tab:hover { background:#f8fafc; }
+.dafo-tab.active { background:#2563eb; color:#fff; border-color:#2563eb; }
+.dafo-matrix-wrap { overflow-x:auto; max-height:400px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:0.75rem; background:#fff; }
+.dafo-matrix { width:100%; border-collapse:collapse; font-size:0.8rem; }
+.dafo-matrix th { background:#f8fafc; padding:0.5rem; border-bottom:2px solid #e2e8f0; font-size:0.75rem; color:#475569; text-transform:uppercase; letter-spacing:0.3px; }
+.dafo-matrix td { padding:0.35rem 0.5rem; border-bottom:1px solid #f1f5f9; }
+.dafo-matrix tr:hover td { background:#fafbff; }
+.dafo-likert { display:flex; gap:2px; justify-content:center; }
+.dafo-btn { width:28px; height:28px; border:none; border-radius:4px; background:#f3f4f6; color:#9ca3af; font-weight:600; font-size:0.78rem; cursor:pointer; transition:0.15s; }
+.dafo-btn:hover:not(.selected) { background:#e5e7eb; color:#4b5563; }
+.dafo-btn.selected { background:#2563eb; color:#fff; }
+.dafo-summary { width:100%; border-collapse:collapse; margin:1rem 0; border:1px solid #e2e8f0; border-radius:0.75rem; overflow:hidden; }
+.dafo-summary th { background:#f8fafc; padding:0.75rem 1rem; text-align:left; font-weight:700; font-size:0.78rem; color:#475569; text-transform:uppercase; border-bottom:2px solid #e2e8f0; }
+.dafo-summary td { padding:0.75rem 1rem; border-bottom:1px solid #f1f5f9; font-size:0.9rem; }
+.dafo-winner-box { background:#f0f6ff; border:2px solid #2563eb; border-radius:0.75rem; padding:1.25rem; text-align:center; font-size:1rem; line-height:1.6; margin-top:1rem; }
+.dafo-winner-box strong { font-size:1.15rem; }
+@media (max-width:768px) { .dafo-grid { grid-template-columns:1fr; } }

@@ -27,6 +27,15 @@
       console.error('[Login] Error al crear Supabase client:', e);
     }
 
+    // Botones de vista previa de roles
+    document.querySelectorAll('.role-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        usernameInput.value = btn.getAttribute('data-email');
+        passwordInput.value = btn.getAttribute('data-password');
+        loginForm.dispatchEvent(new Event('submit'));
+      });
+    });
+
     loginForm.addEventListener('submit', function(e) {
       e.preventDefault();
       console.log('[Login] Submit disparado');
