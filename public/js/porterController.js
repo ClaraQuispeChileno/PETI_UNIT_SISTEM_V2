@@ -172,7 +172,7 @@ function finalizar() {
     mostrarResultados();
     if (typeof showToast !== "undefined") showToast("Analisis Porter guardado.", "success");
     if (typeof cargarDashboard !== "undefined") cargarDashboard();
-  }).catch(function(e) {
+  }).then(null, function(e) {
     console.error("Error finalizarPorter:", e);
     if (typeof showToast !== "undefined") showToast("Error al guardar: " + e.message, "error");
   });
@@ -195,7 +195,7 @@ function sincFoda() {
           else supabaseClient.from("foda").insert(row);
         });
       });
-    }).catch(function(e){ console.error("Error FODA Porter:", e); });
+    }).then(null, function(e){ console.error("Error FODA Porter:", e); });
 }
 
 function mostrarResultados() {
@@ -291,7 +291,7 @@ function cargarPorter() {
     if (typeof currentPlanId === "undefined" || !currentPlanId) return;
 
     // 1. Intentar carga desde tabla especializada porter_resultados
-    supabaseClient.from("porter_resultados").select("*").eq("plan_id", currentPlanId).single().then(function(res) {
+    supabaseClient.from("porter_resultados").select("*").eq("plan_id", currentPlanId).maybeSingle().then(function(res) {
       var data = res.data;
       if (res.error && res.error.code === "42P01") data = null;
 
@@ -302,7 +302,7 @@ function cargarPorter() {
       }
 
       // 2. Fallback: intentar desde plan_contenido (legacy)
-      supabaseClient.from("plan_contenido").select("contenido").eq("plan_id", currentPlanId).eq("modulo_id", "M06").single().then(function(legacy) {
+      supabaseClient.from("plan_contenido").select("contenido").eq("plan_id", currentPlanId).eq("modulo_id", "M06").maybeSingle().then(function(legacy) {
         var legacyData = legacy.data;
         if (legacyData && legacyData.contenido && legacyData.contenido.respuestas) {
           respuestas = legacyData.contenido.respuestas;
@@ -311,20 +311,20 @@ function cargarPorter() {
           supabaseClient.from("porter_resultados").upsert({
             plan_id: currentPlanId, usuario_id: currentUser ? currentUser.id : null, estado:"procesado",
             resultados:{ promedios:proms, respuestas:respuestas }
-          }, { onConflict:"plan_id" }).catch(function(){});
+          }, { onConflict:"plan_id" }).then(null, function(){});
           mostrarResultadosUI();
           return;
         }
         // 3. Sin datos en ninguna tabla
         respuestas = {};
         mostrarWizardUI();
-      }).catch(function() {
+      }).then(null, function() {
         // plan_contenido no tiene datos (PGRST116)
         respuestas = {};
         mostrarWizardUI();
       });
 
-    }).catch(function(e) { console.error("Error cargarPorter DB:", e); });
+    }).then(null, function(e) { console.error("Error cargarPorter DB:", e); });
   } catch(e2) { console.error("Error en cargarPorter:", e2); }
 }
 
@@ -368,3 +368,5 @@ document.addEventListener("click", function(e) {
 });
 
 })();
+
+

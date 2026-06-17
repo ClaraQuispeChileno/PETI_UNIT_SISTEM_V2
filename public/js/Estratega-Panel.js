@@ -48,6 +48,7 @@ let respuestasM04 = {}; // Almacena respuestas locales { item_num: puntaje }
 let chartRadarM04 = null; // Instancia de gráfico Chart.js
 let m04CompletadoPreviamente = false; // Si ya se completó el diagnóstico antes
 let m04ModoActualizacion = false; // Si estamos en modo actualización (vs nuevo)
+let m04FodaItems = []; // Arreglo local de fortalezas/debilidades para edición
 
 // Estado del Wizard Identidad Corporativa (M01)
 let currentStepM01 = 1;
@@ -618,35 +619,54 @@ async function guardarM01() {
 
 // ==================== M04: CADENA DE VALOR (25 preguntas) ====================
 async function cargarCadenaValor() {
-  console.log('Cargando autodiagnóstico de cadena de valor...');
+  console.log('[M04] Cargando autodiagnóstico de cadena de valor...');
   respuestasM04 = {};
   m04CompletadoPreviamente = false;
   m04ModoActualizacion = false;
   
+  var pcData = null;
   try {
     const { data, error } = await supabaseClient
-      .from('autodiag_cadena')
+      .from('plan_contenido')
       .select('*')
-      .eq('plan_id', currentPlanId);
-      
-    if (error) throw error;
+      .eq('plan_id', currentPlanId)
+      .eq('modulo_id', 'M04')
+      .maybeSingle();
+    if (!error && data) pcData = data;
+  } catch (_) {}
+  
+  var pcContenido = pcData ? (pcData.contenido || {}) : {};
+  
+  if (pcData && (pcData.completado === true || pcContenido.completado === true)) {
+    m04CompletadoPreviamente = true;
+    if (Array.isArray(pcContenido.respuestas)) {
+      pcContenido.respuestas.forEach((val, idx) => {
+        if (val !== null && val !== undefined) {
+          respuestasM04[idx + 1] = val;
+        }
+      });
+    }
+  } else {
+    try {
+      const { data, error } = await supabaseClient
+        .from('autodiag_cadena')
+        .select('*')
+        .eq('plan_id', currentPlanId);
+      if (!error && data && data.length > 0) {
+        data.forEach(row => { respuestasM04[row.item_num] = row.puntaje; });
+      }
+    } catch (err) {
+      console.error('[M04] Error cargando autodiag_cadena:', err);
+    }
     
-    if (data && data.length > 0) {
-      data.forEach(row => { respuestasM04[row.item_num] = row.puntaje; });
-    } else {
+    if (totalRespondidos() === 0) {
       await cargarFallbackPlanContenido();
     }
-  } catch (err) {
-    await cargarFallbackPlanContenido();
   }
   
-  // Determinar el bloque actual idóneo
   determinarBloqueActual();
-  
-  // Renderizar stepper superior
   renderStepper();
   
-  // Mostrar pantalla adecuada
   if (totalRespondidos() === 25) {
     m04CompletadoPreviamente = true;
     mostrarPantallaResultados();
@@ -978,10 +998,7 @@ async function responderPregunta(itemNum, score) {
     console.error("Error al realizar upsert en autodiag_cadena:", err);
   }
   
-  // 3. Sincronizar tabla foda desde el cliente (como fallback y respuesta instantánea)
-  await sincronizarFodaCliente(itemNum, score, item.enunciado, item.bloque);
-  
-  // 4. Re-renderizar la pantalla
+  // 3. Re-renderizar la pantalla
   renderStepper();
   renderWizardBlock();
 }
@@ -1152,6 +1169,14 @@ async function mostrarPantallaResultados() {
   
   // Cargar tablas de trazabilidad
   await cargarTablasTrazabilidad();
+  
+  // Mostrar/ocultar elementos según modo
+  var alertBanner = document.getElementById('m04AlertBanner');
+  if (alertBanner) {
+    alertBanner.style.display = m04CompletadoPreviamente ? 'flex' : 'none';
+  }
+  var saveSection = document.getElementById('m04SaveSection');
+  if (saveSection) saveSection.style.display = 'flex';
 }
 
 // RENDER DESGLOSE POR BLOQUES (Cards)
@@ -1296,8 +1321,23 @@ function renderRadarChart() {
 
 // LLENAR TABLAS DE FORTALEZAS Y DEBILIDADES CON TRAZABILIDAD DETALLADA
 async function cargarTablasTrazabilidad() {
+  try {
+    const { data: fodaItems, error } = await supabaseClient
+      .from('cadena_valor_foda')
+      .select('*')
+      .eq('plan_id', currentPlanId)
+      .order('id');
+    if (!error && fodaItems) m04FodaItems = fodaItems;
+  } catch (err) {
+    console.error('[M04] Error cargando cadena_valor_foda:', err);
+  }
+  renderFodaTables();
+}
+
+function renderFodaTables() {
   const tbodyFortalezas = document.querySelector('#tablaFortalezasM04 tbody');
   const tbodyDebilidades = document.querySelector('#tablaDebilidadesM04 tbody');
+  if (!tbodyFortalezas || !tbodyDebilidades) return;
   
   tbodyFortalezas.innerHTML = '';
   tbodyDebilidades.innerHTML = '';
@@ -1305,68 +1345,52 @@ async function cargarTablasTrazabilidad() {
   const fortalezasList = [];
   const debilidadesList = [];
   
-  for (let i = 1; i <= 25; i++) {
-    const val = respuestasM04[i];
-    if (val === undefined) continue;
-    
-    const q = preguntasCadenaValor[i - 1];
-    const tipo = val >= 3 ? 'fortaleza' : 'debilidad';
-    const tipoLabel = val >= 3 ? 'Fortaleza' : 'Debilidad';
-    const tipoIcon = val >= 3 ? 'bi-shield-check-fill' : 'bi-exclamation-triangle-fill';
-    
-    const rowHtml = `
-      <tr>
-        <td style="text-align: center;">
-          <div class="pregunta-num-col" style="margin: 0 auto;">${i}</div>
-        </td>
-        <td>
-          <div style="font-weight: 600; color: #1e293b; margin-bottom: 0.4rem; line-height: 1.5;">${q.enunciado}</div>
-          <div class="trazabilidad-metadata-box">
-            <span class="meta-label">Trazabilidad:</span>
-            <span class="meta-badge"><i class="bi bi-link-45deg"></i> cadena_de_valor</span>
-            <span class="meta-badge"><i class="bi bi-hash"></i> ítem ${i}</span>
-            <span class="meta-badge"><i class="bi bi-folder2"></i> ${q.bloque}</span>
-            <span class="meta-badge"><i class="bi bi-${tipoIcon}"></i> ${tipoLabel}</span>
-            <span class="meta-badge"><i class="bi bi-star-fill"></i> ${val}/4</span>
-            <span class="meta-badge auto-badge"><i class="bi bi-robot"></i> Auto</span>
-          </div>
-        </td>
-        <td>
-          <div class="chip-trazabilidad chip-trazabilidad-bloque">
-            <i class="bi bi-folder2-open"></i> ${q.bloque}
-          </div>
-        </td>
-        <td style="text-align: center;">
-          <span class="chip-trazabilidad-score ${tipo}">
-            <i class="bi bi-${tipoIcon}"></i> ${val}/4
-          </span>
+  var idx = 0;
+  m04FodaItems.forEach(item => {
+    idx++;
+    var rowHtml = `
+      <tr data-foda-id="${item.id}">
+        <td style="text-align:center;"><div class="pregunta-num-col" style="margin:0 auto;">${idx}</div></td>
+        <td><div style="font-weight:600;color:#1e293b;line-height:1.5;" class="foda-descripcion">${escapeHtml(item.descripcion)}</div></td>
+        <td style="text-align:center;">
+          <button class="btn-small btn-secondary foda-edit-btn" data-id="${item.id}" title="Editar"><i class="bi bi-pencil"></i></button>
+          <button class="btn-small btn-danger foda-delete-btn" data-id="${item.id}" title="Eliminar"><i class="bi bi-trash"></i></button>
         </td>
       </tr>
     `;
-    
-    if (val >= 3) {
+    if (item.tipo === 'fortaleza') {
       fortalezasList.push(rowHtml);
-    } else if (val <= 1) {
+    } else {
       debilidadesList.push(rowHtml);
     }
-  }
+  });
   
-  // Update count badges
-  const countFortalezasEl = document.getElementById('countFortalezas');
-  const countDebilidadesEl = document.getElementById('countDebilidades');
+  var countFortalezasEl = document.getElementById('countFortalezas');
+  var countDebilidadesEl = document.getElementById('countDebilidades');
   if (countFortalezasEl) countFortalezasEl.innerText = fortalezasList.length;
   if (countDebilidadesEl) countDebilidadesEl.innerText = debilidadesList.length;
   
-  if (fortalezasList.length > 0) {
-    tbodyFortalezas.innerHTML = fortalezasList.join('');
-  } else {
-    tbodyFortalezas.innerHTML = `<tr class="empty-state-row"><td colspan="4"><i class="bi bi-shield-slash"></i><br>No se detectaron fortalezas (puntajes 3 o 4)</td></tr>`;
-  }
+  tbodyFortalezas.innerHTML = fortalezasList.length > 0
+    ? fortalezasList.join('')
+    : '<tr class="empty-state-row"><td colspan="3"><i class="bi bi-shield-slash"></i><br>No se registraron fortalezas</td></tr>';
   
-  if (debilidadesList.length > 0) {
-    tbodyDebilidades.innerHTML = debilidadesList.join('');
-  } else {
-    tbodyDebilidades.innerHTML = `<tr class="empty-state-row"><td colspan="4"><i class="bi bi-check-circle"></i><br>No se detectaron debilidades (puntajes 0 o 1). ¡Excelente!</td></tr>`;
+  tbodyDebilidades.innerHTML = debilidadesList.length > 0
+    ? debilidadesList.join('')
+    : '<tr class="empty-state-row"><td colspan="3"><i class="bi bi-check-circle"></i><br>No se registraron debilidades</td></tr>';
+  
+  var addFortDiv = document.getElementById('m04AddFortaleza');
+  if (addFortDiv) {
+    addFortDiv.innerHTML = '<div class="foda-add-container" style="display:flex;gap:6px;margin-top:8px;">'
+      + '<input type="text" class="foda-add-input" placeholder="Nueva fortaleza..." style="flex:1;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85em;">'
+      + '<button class="btn-small btn-primary foda-add-btn" data-tipo="fortaleza" style="white-space:nowrap;"><i class="bi bi-plus-lg"></i> Agregar</button>'
+      + '</div>';
+  }
+  var addDebDiv = document.getElementById('m04AddDebilidad');
+  if (addDebDiv) {
+    addDebDiv.innerHTML = '<div class="foda-add-container" style="display:flex;gap:6px;margin-top:8px;">'
+      + '<input type="text" class="foda-add-input" placeholder="Nueva debilidad..." style="flex:1;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85em;">'
+      + '<button class="btn-small btn-danger foda-add-btn" data-tipo="debilidad" style="white-space:nowrap;"><i class="bi bi-plus-lg"></i> Agregar</button>'
+      + '</div>';
   }
 }
 
@@ -1443,13 +1467,18 @@ async function finalizarDiagnostico() {
   }
   
   // 2. Guardar en plan_contenido
-  const { error } = await supabaseClient.from('plan_contenido').upsert({
+  const savePayload = {
     plan_id: currentPlanId,
     modulo_id: 'M04',
     contenido: contenido,
     completado: true,
     completado_fecha: new Date()
-  }, { onConflict: 'plan_id, modulo_id' });
+  };
+  if (currentUser.id) {
+    savePayload.completado_por = currentUser.id;
+  }
+  
+  const { error } = await supabaseClient.from('plan_contenido').upsert(savePayload, { onConflict: 'plan_id, modulo_id' });
   
   if (error) {
     showToast('Error al guardar: ' + error.message, 'error');
@@ -3265,10 +3294,15 @@ function setupEventListeners() {
   // Botón "Actualizar cadena valor" en pantalla de resultados
   const backBtn = document.getElementById('btnBackToWizard');
   if (backBtn) {
-    backBtn.onclick = () => {
+    backBtn.onclick = async () => {
       respuestasM04 = {};
       m04ModoActualizacion = true;
       currentStepM04 = 1;
+      
+      try {
+        await supabaseClient.from('autodiag_cadena').delete().eq('plan_id', currentPlanId);
+      } catch (_) {}
+      
       determinarBloqueActual();
       renderStepper();
       renderWizardBlock();
@@ -3291,10 +3325,13 @@ function setupEventListeners() {
   // Modal de confirmación de cancelar actualización M04
   const m04CancelConfirmBtn = document.getElementById('m04CancelConfirmBtn');
   if (m04CancelConfirmBtn) {
-    m04CancelConfirmBtn.onclick = () => {
+    m04CancelConfirmBtn.onclick = async () => {
       document.getElementById('m04CancelConfirmModal').style.display = 'none';
+      try {
+        await supabaseClient.from('autodiag_cadena').delete().eq('plan_id', currentPlanId);
+      } catch (_) {}
       m04ModoActualizacion = false;
-      cargarCadenaValor();
+      await cargarCadenaValor();
     };
   }
   const m04CancelCloseBtn = document.getElementById('m04CancelCloseBtn');
@@ -3335,6 +3372,102 @@ function setupEventListeners() {
         renderStepper();
         renderWizardBlock();
       }
+    };
+  }
+
+  // Delegación de eventos FODA M04 (edición local en m04FodaItems)
+  document.addEventListener('click', async (e) => {
+    var deleteBtn = e.target.closest('.foda-delete-btn');
+    if (deleteBtn) {
+      var id = deleteBtn.getAttribute('data-id');
+      if (id && confirm('¿Eliminar este elemento?')) {
+        m04FodaItems = m04FodaItems.filter(function(item) { return String(item.id) !== id; });
+        renderFodaTables();
+      }
+      return;
+    }
+    var editBtn = e.target.closest('.foda-edit-btn');
+    if (editBtn) {
+      var id = editBtn.getAttribute('data-id');
+      var tr = editBtn.closest('tr');
+      var descEl = tr.querySelector('.foda-descripcion');
+      if (!tr || !descEl) return;
+      var currentDesc = descEl.textContent.trim();
+      descEl.innerHTML = '<input type="text" class="foda-edit-input" value="' + escapeHtml(currentDesc) + '" style="width:100%;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9em;">';
+      var input = descEl.querySelector('.foda-edit-input');
+      input.focus();
+      input.onkeydown = function(ev) {
+        if (ev.key === 'Enter') {
+          var newDesc = ev.target.value.trim();
+          if (newDesc) {
+            m04FodaItems.forEach(function(item) {
+              if (String(item.id) === id) item.descripcion = newDesc;
+            });
+            renderFodaTables();
+          }
+        } else if (ev.key === 'Escape') {
+          renderFodaTables();
+        }
+      };
+      input.onblur = function() {
+        var newDesc = descEl.querySelector('.foda-edit-input').value.trim();
+        if (newDesc && newDesc !== currentDesc) {
+          m04FodaItems.forEach(function(item) {
+            if (String(item.id) === id) item.descripcion = newDesc;
+          });
+        }
+        renderFodaTables();
+      };
+      return;
+    }
+    var addBtn = e.target.closest('.foda-add-btn');
+    if (addBtn) {
+      var tipo = addBtn.getAttribute('data-tipo');
+      var container = addBtn.closest('.foda-add-container') || addBtn.parentElement;
+      var input = container.querySelector('.foda-add-input');
+      if (!input) return;
+      var desc = input.value.trim();
+      if (!desc) { showToast('Ingrese una descripción', 'error'); return; }
+      var tempId = 'temp_' + Date.now();
+      m04FodaItems.push({ id: tempId, tipo: tipo, descripcion: desc });
+      input.value = '';
+      renderFodaTables();
+      return;
+    }
+  });
+
+  // Guardar resultados M04 (persiste respuestas + FODA)
+  var guardarBtn = document.getElementById('guardarResultadosM04Btn');
+  if (guardarBtn) {
+    guardarBtn.onclick = async function() {
+      try {
+        // Persistir FODA local en cadena_valor_foda
+        await supabaseClient.from('cadena_valor_foda').delete().eq('plan_id', currentPlanId);
+        if (m04FodaItems.length > 0) {
+          var inserts = m04FodaItems.map(function(item) {
+            return { plan_id: currentPlanId, tipo: item.tipo, descripcion: item.descripcion };
+          });
+          var { error: insErr } = await supabaseClient.from('cadena_valor_foda').insert(inserts);
+          if (insErr) throw insErr;
+        }
+        showToast('Resultados guardados correctamente.', 'success');
+        await cargarCadenaValor();
+      } catch (err) {
+        console.error('[M04] Error al guardar resultados:', err);
+        showToast('Error al guardar: ' + err.message, 'error');
+      }
+    };
+  }
+
+  // Cancelar actualizaciones M04 (descarta cambios locales, recarga desde BD)
+  var cancelarBtn = document.getElementById('cancelarActualizacionM04Btn');
+  if (cancelarBtn) {
+    cancelarBtn.onclick = async function() {
+      try {
+        await supabaseClient.from('autodiag_cadena').delete().eq('plan_id', currentPlanId);
+      } catch (_) {}
+      m04ModoActualizacion = false;
+      await cargarCadenaValor();
     };
   }
 

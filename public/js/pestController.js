@@ -217,7 +217,7 @@ function finalizar() {
     mostrarResultados(proms, promsNorm, avgNorm, recs);
     if (typeof showToast !== "undefined") showToast("Analisis PEST guardado.", "success");
     if (typeof cargarDashboard !== "undefined") cargarDashboard();
-  }).catch(function(e) {
+  }).then(null, function(e) { console.error("Error finalizarPEST:", e);
     console.error("Error finalizarPEST:", e);
     if (typeof showToast !== "undefined") showToast("Error al guardar: " + e.message, "error");
   });
@@ -240,7 +240,7 @@ function sincFoda(proms) {
         if (exist) supabaseClient.from("foda").update(row).eq("id", exist.id);
         else supabaseClient.from("foda").insert(row);
       });
-    }).catch(function(e){ console.error("Error sincFoda:", e); });
+    }).then(null, function(e){ console.error("Error sincFoda:", e); });
 }
 function mostrarResultados(proms, promsNorm, avgNorm, recs) {
   var pi = document.getElementById("pestImpacto"); if (pi) pi.innerText = avgNorm.toFixed(2);
@@ -361,7 +361,7 @@ function cargarPest() {
     if (typeof currentPlanId === "undefined" || !currentPlanId) return;
 
     // 1. Intentar desde pest_resultados
-    supabaseClient.from("pest_resultados").select("*").eq("plan_id", currentPlanId).single().then(function(res) {
+    supabaseClient.from("pest_resultados").select("*").eq("plan_id", currentPlanId).maybeSingle().then(function(res) {
       var data = res.data;
       if (res.error && res.error.code === "42P01") data = null;
 
@@ -372,7 +372,7 @@ function cargarPest() {
       }
 
       // 2. Fallback: plan_contenido (legacy)
-      supabaseClient.from("plan_contenido").select("contenido").eq("plan_id", currentPlanId).eq("modulo_id", "M07").single().then(function(legacy) {
+      supabaseClient.from("plan_contenido").select("contenido").eq("plan_id", currentPlanId).eq("modulo_id", "M07").maybeSingle().then(function(legacy) {
         var legacyData = legacy.data;
         if (legacyData && legacyData.contenido && legacyData.contenido.respuestas) {
           respuestas = legacyData.contenido.respuestas;
@@ -380,18 +380,18 @@ function cargarPest() {
           supabaseClient.from("pest_resultados").upsert({
             plan_id: currentPlanId, usuario_id: currentUser ? currentUser.id : null, estado:"procesado",
             resultados:{ promedios:proms, respuestas:respuestas }
-          }, { onConflict:"plan_id" }).catch(function(){});
+          }, { onConflict:"plan_id" }).then(null, function(){});
           mostrarResultadosUI();
           return;
         }
         respuestas = {};
         mostrarWizardUI();
-      }).catch(function() {
+      }).then(null, function() {
         respuestas = {};
         mostrarWizardUI();
       });
 
-    }).catch(function(e) { console.error("Error cargarPest DB:", e); });
+    }).then(null, function(e) { console.error("Error cargarPest DB:", e); });
   } catch(e2) { console.error("Error en cargarPest:", e2); }
 }
 

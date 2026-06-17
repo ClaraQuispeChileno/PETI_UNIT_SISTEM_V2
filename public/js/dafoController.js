@@ -25,15 +25,18 @@ function cargarDafo() {
   try {
     if (typeof currentPlanId === "undefined" || !currentPlanId) return;
 
-    // Cargar desde MULTIPLES FUENTES: foda + plan_contenido + resultados modulos
-    Promise.all([
-      supabaseClient.from("foda").select("id,tipo,descripcion,trazabilidad,generado_auto").eq("plan_id", currentPlanId).order("id"),
-      supabaseClient.from("plan_contenido").select("contenido").eq("plan_id", currentPlanId).eq("modulo_id", "M08").single(),
-      supabaseClient.from("estrategia_plan").select("*").eq("plan_id", currentPlanId).single(),
-      supabaseClient.from("porter_resultados").select("resultados").eq("plan_id", currentPlanId).single(),
-      supabaseClient.from("pest_resultados").select("resultados").eq("plan_id", currentPlanId).single(),
-      supabaseClient.from("plan_contenido").select("contenido").eq("plan_id", currentPlanId).eq("modulo_id", "M04").single()
-    ]).then(function(results) {
+    // Cargar desde MULTIPLES FUENTES (cada query con manejo de errores independiente)
+    var get = function(promise){ return promise.then(function(r){ return r; }, function(e){ return {data:null,error:e}; }); };
+    var pid = currentPlanId;
+    var queries = [
+      get(supabaseClient.from("foda").select("id,tipo,descripcion,trazabilidad,generado_auto").eq("plan_id", pid).order("id")),
+      get(supabaseClient.from("plan_contenido").select("contenido").eq("plan_id",pid).eq("modulo_id","M08").maybeSingle()),
+      get(supabaseClient.from("estrategia_plan").select("*").eq("plan_id",pid).maybeSingle()),
+      get(supabaseClient.from("porter_resultados").select("resultados").eq("plan_id",pid).maybeSingle()),
+      get(supabaseClient.from("pest_resultados").select("resultados").eq("plan_id",pid).maybeSingle()),
+      get(supabaseClient.from("plan_contenido").select("contenido").eq("plan_id",pid).eq("modulo_id","M04").maybeSingle())
+    ];
+    Promise.all(queries).then(function(results) {
       var fodaData = (results[0].data || []).filter(function(x){ return x && x.tipo && x.descripcion; });
       var m08Content = results[1].data ? results[1].data.contenido : null;
       var estrategia = results[2].data;
@@ -102,7 +105,7 @@ function cargarDafo() {
         return arr.sort(function(a,b){
           var oa = ordenOrigen.indexOf(a.trazabilidad && a.trazabilidad.origen ? a.trazabilidad.origen : "z");
           var ob = ordenOrigen.indexOf(b.trazabilidad && b.trazabilidad.origen ? b.trazabilidad.origen : "z");
-          if (oa === ob) return (a.id||"").localeCompare(b.id||"");
+          if (oa === ob) return String(a.id||"").localeCompare(String(b.id||""));
           return oa - ob;
         });
       }

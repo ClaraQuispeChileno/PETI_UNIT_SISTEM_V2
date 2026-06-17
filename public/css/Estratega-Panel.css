@@ -290,8 +290,8 @@
 
     /* Objetivos responsivos */
     .objetivos-container {
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
       gap: 1.5rem;
     }
 
@@ -400,6 +400,9 @@
       }
       .main-content {
         margin-left: 80px;
+      }
+      .objetivos-container {
+        grid-template-columns: 1fr;
       }
       .objetivo-header {
         flex-direction: column;
@@ -2392,6 +2395,24 @@
 }
 
 .m05-badge-progreso.edicion {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.m05-badge-progreso.no-iniciado {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+.m05-badge-progreso.completado {
+  background: #e2f0d9;
+  color: #385723;
+  border-color: #a9d18e;
+}
+
+.m05-badge-progreso.actualizando {
   background: #fffbeb;
   color: #92400e;
   border-color: #fde68a;
