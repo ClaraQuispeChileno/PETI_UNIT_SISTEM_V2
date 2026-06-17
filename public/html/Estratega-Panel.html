@@ -26,7 +26,6 @@
       <a href="#" class="nav-item" data-section="m07"><i class="bi bi-globe"></i><span> PEST</span></a>
       <a href="#" class="nav-item" data-section="m08"><i class="bi bi-table"></i><span> FODA</span></a>
       <a href="#" class="nav-item" data-section="m09"><i class="bi bi-tasks"></i><span> CAME</span></a>
-      <a href="#" class="nav-item" data-section="kpis"><i class="bi bi-graph-up"></i><span> KPIs</span></a>
     </nav>
     <div class="sidebar-footer">
       <button id="logoutBtn" class="logout-button"><i class="bi bi-box-arrow-right"></i><span> Cerrar sesión</span></button>
@@ -1038,54 +1037,98 @@
         </div>
       </div>
 
-      <!-- MÓDULO M08: MATRIZ DAFO -->
+      <!-- MÓDULO M08: MATRIZ FODA -->
       <div id="m08" class="section-content">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
           <div>
-            <h1 style="font-size:1.8rem;font-weight:800;color:#0f172a;margin:0;letter-spacing:-0.02em;">Matriz DAFO</h1>
-            <p style="color:#64748b;font-size:0.92rem;margin:0.25rem 0 0 0;">Cruce estrategico de factores internos (F/D) y externos (O/A). Escala: 0 (total desacuerdo) a 4 (total acuerdo)</p>
+            <h1 style="font-size:1.8rem;font-weight:800;color:#0f172a;margin:0;letter-spacing:-0.02em;">Matriz FODA</h1>
+            <p style="color:#64748b;font-size:0.92rem;margin:0.25rem 0 0 0;">Módulo M08 · Identificación de factores estratégicos internos y externos.</p>
           </div>
           <span class="m05-badge-progreso" id="m08EstadoBadge">No iniciado</span>
         </div>
-        <div id="dafoAlertBanner" class="m05-alert-banner" style="display:none;justify-content:space-between;align-items:center;"><span><i class="bi bi-info-circle-fill"></i> <span id="dafoAlertText">Este planeamiento ya cuenta con una Matriz DAFO procesada.</span></span><button class="btn-actualizar-cadena" id="dafoBackBtn" style="flex-shrink:0;font-size:0.8rem;padding:0.4rem 1rem;"><i class="bi bi-arrow-repeat"></i> Editar matriz</button></div>
-        <div id="dafoWizardContainer">
-          <div class="m01-tip-banner"><i class="bi bi-lightbulb-fill" style="color:#f59e0b;"></i><span>Puntue cada relacion estrategica de 0 a 4 segun el grado de influencia entre los factores.</span></div>
 
+        <!-- BANNER DE ESTADO -->
+        <div id="dafoAlertBanner" class="m05-alert-banner" style="display:none;justify-content:space-between;align-items:center;">
+          <span><i class="bi bi-info-circle-fill"></i> <span id="dafoAlertText">Este planeamiento ya cuenta con una Matriz FODA procesada.</span></span>
+          <button class="btn-actualizar-cadena" id="dafoActualizarBtn" style="flex-shrink:0;font-size:0.8rem;padding:0.4rem 1rem;">
+            <i class="bi bi-arrow-repeat"></i> <span id="dafoActualizarBtnText">Actualizar FODA</span>
+          </button>
+        </div>
+
+        <!-- FACTORES IDENTIFICADOS -->
+        <div id="dafoFactoresSection">
           <h3 style="font-size:1rem;font-weight:700;color:#0f172a;margin-bottom:1rem;">Factores Identificados</h3>
           <div id="dafoFactoresGrid"></div>
+        </div>
 
-          <h3 style="font-size:1rem;font-weight:700;color:#0f172a;margin:1.5rem 0 0.75rem;">Evaluacion de Relaciones Estrategicas</h3>
-          <p style="color:#64748b;font-size:0.85rem;margin-bottom:0.75rem;">Puntue cada cruce: 0 = total desacuerdo, 4 = total acuerdo</p>
-          <div class="dafo-tabs" id="dafoTabs"></div>
-          <div id="dafoMatrixContent"></div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1rem;padding:0.75rem 1rem;background:#f8fafc;border-radius:0.75rem;border:1px solid #e2e8f0;">
-            <div style="font-size:0.95rem;font-weight:600;color:#1e293b;" id="dafoTotalPuntaje">Puntaje total: 0</div>
+        <!-- WIZARD DE ACTUALIZACION (4 pasos) -->
+        <div id="dafoWizardContainer" style="display:none;">
+          <div class="wizard-stepper-container">
+            <div class="wizard-stepper" id="dafoStepper">
+              <div class="stepper-progress-line" id="dafoStepperProgressLine"></div>
+              <div class="stepper-step active" data-step="1"><div class="stepper-circle">1</div><span class="stepper-step-label">Fort.</span></div>
+              <div class="stepper-step locked" data-step="2"><div class="stepper-circle">2</div><span class="stepper-step-label">Deb.</span></div>
+              <div class="stepper-step locked" data-step="3"><div class="stepper-circle">3</div><span class="stepper-step-label">Oport.</span></div>
+              <div class="stepper-step locked" data-step="4"><div class="stepper-circle">4</div><span class="stepper-step-label">Amen.</span></div>
+            </div>
+            <div class="stepper-current-label" id="dafoStepperCurrentLabel"><i class="bi bi-arrow-right-circle-fill"></i> Paso 1 de 4: Fortalezas</div>
           </div>
 
-          <h3 style="font-size:1rem;font-weight:700;color:#0f172a;margin:1.5rem 0 0.75rem;">Sintesis de Resultados</h3>
-          <div class="dafo-synthesis" style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1rem;">
-            <div class="resumen-card-premium" style="flex:1;min-width:120px;"><span class="card-label">FO - Ofensiva</span><div class="puntaje-total-premium" id="dafoResultFO">0</div><p class="card-subtext" id="dafoPctFO">0%</p></div>
-            <div class="resumen-card-premium" style="flex:1;min-width:120px;"><span class="card-label">FA - Defensiva</span><div class="puntaje-total-premium" id="dafoResultFA">0</div><p class="card-subtext" id="dafoPctFA">0%</p></div>
-            <div class="resumen-card-premium" style="flex:1;min-width:120px;"><span class="card-label">DO - Reorientacion</span><div class="puntaje-total-premium" id="dafoResultDO">0</div><p class="card-subtext" id="dafoPctDO">0%</p></div>
-            <div class="resumen-card-premium" style="flex:1;min-width:120px;"><span class="card-label">DA - Supervivencia</span><div class="puntaje-total-premium" id="dafoResultDA">0</div><p class="card-subtext" id="dafoPctDA">0%</p></div>
+          <div class="bloque-card-premium">
+            <div class="bloque-card-header">
+              <h2 id="dafoBloqueTitulo">FORTALEZAS — ITEMS</h2>
+              <div class="bloque-progress-bar" style="display:flex!important;align-items:center;gap:0.5rem;">
+                <div class="bar-track" style="width:100px;height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;">
+                  <div class="bar-fill" id="dafoBarFill" style="height:100%;background:linear-gradient(90deg,#2563eb,#3b82f6);border-radius:3px;transition:width 0.4s;width:0%;"></div>
+                </div>
+                <span class="bar-label" id="dafoBarLabel" style="font-size:0.78rem;font-weight:700;color:#64748b;white-space:nowrap;">0 items</span>
+              </div>
+            </div>
+            <div id="dafoStepContent" class="cuestionario-container" style="padding:1.5rem 2rem;"></div>
+            <div class="bloque-card-footer">
+              <div class="puntaje-acumulado-col">Items registrados: <strong id="dafoItemsCount">0</strong></div>
+              <div class="potencial-col"><span id="dafoStepInfo" class="potencial-pill" style="background:#eff6ff;color:#1e40af;">Agregue al menos un item para continuar</span></div>
+            </div>
           </div>
-          <div style="text-align:center;font-size:1rem;font-weight:700;color:#059669;margin-bottom:1rem;" id="dafoWinner">—</div>
 
           <div class="wizard-footer-nav">
-            <button id="dafoCancelBtn" class="btn-secondary">Reiniciar puntajes</button>
-            <button id="dafoGuardarBtn" class="btn-primary" style="background:#2563eb;color:white;"><i class="bi bi-check-lg"></i> Guardar Matriz DAFO</button>
+            <button id="dafoCancelBtn" class="btn-secondary" style="display:none;"><i class="bi bi-x-lg"></i> Cancelar actualizaciones</button>
+            <button id="dafoPrevBtn" class="btn-secondary" disabled><i class="bi bi-arrow-left"></i> Anterior</button>
+            <button id="dafoNextBtn" class="btn-primary" disabled>Siguiente <i class="bi bi-arrow-right"></i></button>
           </div>
         </div>
-        <div id="dafoResultsContainer" style="display:none;">
-          <div style="display:flex;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
-            <div><h2 style="font-size:1.6rem;font-weight:800;color:#0f172a;">Matriz DAFO Procesada</h2><p style="color:#64748b;font-size:0.92rem;">Resultados del cruce estrategico de factores.</p></div>
+
+        <!-- RESULTADOS -->
+        <div id="dafoResultsContainer" class="resultados-finales-container" style="display:none;">
+          <h2 style="font-size:1.6rem;font-weight:800;color:#0f172a;margin-bottom:0.35rem;letter-spacing:-0.02em;">Resultados de la Matriz FODA</h2>
+          <p style="color:#64748b;font-size:0.92rem;margin-bottom:1.5rem;line-height:1.6;">Resumen de puntuaciones obtenidas del cruce estratégico de factores internos y externos.</p>
+          <div class="dafo-results-summary-grid">
+            <div class="resumen-card-premium"><span class="card-label">Fortalezas</span><div class="puntaje-total-premium" id="dafoResultFortalezas">0</div><p class="card-subtext">Factores internos positivos</p></div>
+            <div class="resumen-card-premium"><span class="card-label">Debilidades</span><div class="puntaje-total-premium" id="dafoResultDebilidades">0</div><p class="card-subtext">Factores internos a mejorar</p></div>
+            <div class="resumen-card-premium"><span class="card-label">Oportunidades</span><div class="puntaje-total-premium" id="dafoResultOportunidades">0</div><p class="card-subtext">Factores externos favorables</p></div>
+            <div class="resumen-card-premium"><span class="card-label">Amenazas</span><div class="puntaje-total-premium" id="dafoResultAmenazas">0</div><p class="card-subtext">Factores externos desfavorables</p></div>
           </div>
-          <div id="dafoResultsBody"></div>
-          <div class="dafo-synthesis" style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:1rem;">
-            <div class="resumen-card-premium" style="flex:1;min-width:120px;"><span class="card-label">FO - Ofensiva</span><div class="puntaje-total-premium" id="dafoResultFO2">0</div></div>
-            <div class="resumen-card-premium" style="flex:1;min-width:120px;"><span class="card-label">FA - Defensiva</span><div class="puntaje-total-premium" id="dafoResultFA2">0</div></div>
-            <div class="resumen-card-premium" style="flex:1;min-width:120px;"><span class="card-label">DO - Reorientacion</span><div class="puntaje-total-premium" id="dafoResultDO2">0</div></div>
-            <div class="resumen-card-premium" style="flex:1;min-width:120px;"><span class="card-label">DA - Supervivencia</span><div class="puntaje-total-premium" id="dafoResultDA2">0</div></div>
+          <div id="dafoResultsDetail" style="margin-top:1rem;"></div>
+          <div id="dafoSaveSection" style="display:flex;justify-content:center;gap:1rem;margin-top:1.5rem;padding-top:1.5rem;border-top:2px solid #e2e8f0;">
+            <button id="dafoGuardarActualizacionBtn" class="btn-primary" style="background:#2563eb;color:white;padding:0.7rem 2rem;font-weight:700;font-size:0.95rem;"><i class="bi bi-check-lg"></i> Guardar actualización</button>
+            <button id="dafoCancelarActualizacionBtn" class="btn-secondary" style="padding:0.7rem 2rem;font-weight:600;font-size:0.95rem;"><i class="bi bi-x-lg"></i> Cancelar actualización</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL CONFIRMAR CANCELAR ACTUALIZACION FODA -->
+      <div id="dafoCancelConfirmModal" class="m01-modal" style="display:none;">
+        <div class="m01-modal-content">
+          <div class="m01-modal-header" style="border-bottom-color:#f1f5f9;">
+            <h3 style="color:#92400e;display:flex;align-items:center;gap:0.5rem;margin:0;font-size:1.1rem;"><i class="bi bi-exclamation-triangle-fill" style="color:#d97706;"></i> ¿Cancelar actualización?</h3>
+            <button type="button" class="m01-modal-close" onclick="document.getElementById('dafoCancelConfirmModal').style.display='none'"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <div class="m01-modal-body" style="padding:1.5rem;">
+            <p style="color:#475569;line-height:1.6;margin:0;font-size:0.92rem;">¿Está seguro que desea cancelar la actualización? Los datos no guardados se perderán.</p>
+          </div>
+          <div class="m01-modal-footer">
+            <button type="button" class="btn-secondary" onclick="document.getElementById('dafoCancelConfirmModal').style.display='none'">Seguir editando</button>
+            <button type="button" class="btn-primary" id="dafoCancelConfirmBtn" style="background-color:#dc2626;border-color:#dc2626;color:white;">Sí, cancelar</button>
           </div>
         </div>
       </div>
