@@ -9,6 +9,7 @@ var scores = {};
 var currentStep = 1;
 var dafoCompletado = false;
 var dafoModoActualizacion = false;
+var dafoPuntajesGuardados = null;
 
 var pasos = [
   { id: 'fortaleza', label: 'Fortalezas', icon: 'bi-shield-check-fill', color: '#059669' },
@@ -91,10 +92,12 @@ function cargarDafo() {
       dafoCompletado = itemsF.length > 0 || itemsD.length > 0 || itemsO.length > 0 || itemsA.length > 0;
 
       var pcRes = results[5].data;
-      if (pcRes && pcRes.contenido && pcRes.contenido.scores) {
-        scores = pcRes.contenido.scores;
+      if (pcRes && pcRes.contenido) {
+        scores = pcRes.contenido.scores || {};
+        dafoPuntajesGuardados = pcRes.contenido.puntajes || null;
       } else {
         scores = {};
+        dafoPuntajesGuardados = null;
       }
 
       // Migrar puntajes previos de registros foda a items de modulos con igual descripcion+tipo
@@ -142,7 +145,7 @@ function renderDafoUI() {
   } else if (dafoCompletado) {
     if (alertBanner) { alertBanner.style.display = "flex"; alertBanner.style.justifyContent = "space-between"; }
     if (alertText) alertText.textContent = "Este planeamiento ya cuenta con una Matriz FODA generada.";
-    if (actualizarBtn) { actualizarBtn.style.display = ""; actualizarBtnText.textContent = "Editar matriz"; }
+    if (actualizarBtn) { actualizarBtn.style.display = ""; actualizarBtnText.textContent = "Actualizar FODA"; }
   } else {
     if (alertBanner) { alertBanner.style.display = "flex"; alertBanner.style.justifyContent = "center"; }
     if (alertText) alertText.textContent = "En este planeamiento no hay datos registrados, agregue uno.";
@@ -156,16 +159,16 @@ function renderDafoUI() {
 
   if (!dafoModoActualizacion) {
     renderFactoresGrid();
+    renderResultadosGuardados();
   }
 
+  var wizard = document.getElementById("dafoWizardContainer");
   if (dafoModoActualizacion) {
-    document.getElementById("dafoWizardContainer").style.display = "block";
-    document.getElementById("dafoResultsContainer").style.display = "none";
+    if (wizard) wizard.style.display = "block";
     renderDafoStepper();
     renderDafoStep();
   } else {
-    document.getElementById("dafoWizardContainer").style.display = "none";
-    document.getElementById("dafoResultsContainer").style.display = "none";
+    if (wizard) wizard.style.display = "none";
   }
 }
 
@@ -202,6 +205,54 @@ function renderFactoresGrid() {
   });
   html += '</div>';
   grid.innerHTML = html;
+}
+
+function renderResultadosGuardados() {
+  var container = document.getElementById("dafoResultadosGuardados");
+  var section = document.getElementById("dafoFactoresSection");
+  if (!container) return;
+
+  if (!dafoPuntajesGuardados || dafoPuntajesGuardados.FO === undefined) {
+    container.style.display = "none";
+    container.innerHTML = "";
+    if (section) section.classList.remove("dafo-factores-section-results");
+    return;
+  }
+
+  var p = dafoPuntajesGuardados;
+  var relaciones = [
+    { rel: "FO", label: "Fortalezas + Oportunidades", tipo: "Estrategia Ofensiva", punt: typeof p.FO === "number" ? p.FO : 0, desc: "Deberá adoptar estrategias de crecimiento", color: "#059669" },
+    { rel: "AF", label: "Amenazas + Fortalezas", tipo: "Estrategia Defensiva", punt: typeof p.AF === "number" ? p.AF : 0, desc: "La empresa está preparada para enfrentarse a las amenazas", color: "#2563eb" },
+    { rel: "AD", label: "Amenazas + Debilidades", tipo: "Estrategia de Supervivencia", punt: typeof p.AD === "number" ? p.AD : 0, desc: "Se enfrenta a amenazas externas sin las fortalezas necesarias", color: "#d97706" },
+    { rel: "OD", label: "Oportunidades + Debilidades", tipo: "Estrategia de Reorientación", punt: typeof p.OD === "number" ? p.OD : 0, desc: "La empresa no puede aprovechar las oportunidades por falta de preparación", color: "#dc2626" }
+  ];
+
+  var html = '<div class="dafo-resultados-guardados-card" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:1rem;padding:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,0.04);">';
+  html += '<h3 style="font-size:1rem;font-weight:700;color:#0f172a;margin-bottom:1rem;"><i class="bi bi-bar-chart-fill" style="color:#2563eb;"></i> Resultados guardados de la Matriz FODA</h3>';
+  html += '<div class="dafo-results-summary-grid" style="margin-bottom:1rem;">';
+  html += '<div class="resumen-card-premium"><span class="card-label">Fortalezas</span><div class="puntaje-total-premium">' + itemsF.length + '</div></div>';
+  html += '<div class="resumen-card-premium"><span class="card-label">Debilidades</span><div class="puntaje-total-premium">' + itemsD.length + '</div></div>';
+  html += '<div class="resumen-card-premium"><span class="card-label">Oportunidades</span><div class="puntaje-total-premium">' + itemsO.length + '</div></div>';
+  html += '<div class="resumen-card-premium"><span class="card-label">Amenazas</span><div class="puntaje-total-premium">' + itemsA.length + '</div></div>';
+  html += '</div>';
+
+  html += '<div class="dafo-results-table-wrapper"><table class="dafo-results-table">';
+  html += '<thead><tr><th>Cruce</th><th>Estrategia</th><th>Puntuación</th><th>Interpretación</th></tr></thead><tbody>';
+  relaciones.forEach(function(r) {
+    var barColor = r.punt >= 70 ? '#059669' : (r.punt >= 40 ? '#d97706' : '#dc2626');
+    html += '<tr>';
+    html += '<td><strong>' + r.rel + '</strong><br><span style="font-size:0.75rem;color:#64748b;">' + r.label + '</span></td>';
+    html += '<td>' + r.tipo + '</td>';
+    html += '<td><div class="dafo-score-cell"><div class="dafo-score-bar"><div class="dafo-score-fill" style="width:' + r.punt + '%;background:' + barColor + ';"></div></div><span class="dafo-score-value" style="color:' + barColor + ';">' + r.punt + '%</span></div></td>';
+    html += '<td style="font-size:0.82rem;color:#64748b;">' + r.desc + '</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  html += '</div>';
+
+  container.innerHTML = html;
+  container.style.display = "block";
+  if (section) section.classList.add("dafo-factores-section-results");
 }
 
 function renderDafoStepper() {
@@ -384,36 +435,63 @@ function calcularPuntajes() {
 }
 
 function mostrarResultadosDafo() {
-  document.getElementById("dafoWizardContainer").style.display = "none";
-  document.getElementById("dafoResultsContainer").style.display = "block";
+  var factoresSection = document.getElementById("dafoFactoresSection");
+  var wizard = document.getElementById("dafoWizardContainer");
+  var resultadosGuardados = document.getElementById("dafoResultadosGuardados");
 
-  document.getElementById("dafoResultFortalezas").textContent = itemsF.length;
-  document.getElementById("dafoResultDebilidades").textContent = itemsD.length;
-  document.getElementById("dafoResultOportunidades").textContent = itemsO.length;
-  document.getElementById("dafoResultAmenazas").textContent = itemsA.length;
+  if (wizard) wizard.style.display = "none";
+  if (factoresSection) {
+    factoresSection.style.display = "block";
+    factoresSection.classList.add("dafo-factores-section-results");
+  }
+
+  renderFactoresGrid();
 
   var puntajes = calcularPuntajes();
-
   var relaciones = [
-    { rel: "FO", tipo: "Estrategia Ofensiva", punt: puntajes.FO, desc: "Deberá adoptar estrategias de crecimiento" },
-    { rel: "AF", tipo: "Estrategia Defensiva", punt: puntajes.AF, desc: "La empresa está preparada para enfrentarse a las amenazas" },
-    { rel: "AD", tipo: "Estrategia de Supervivencia", punt: puntajes.AD, desc: "Se enfrenta a amenazas externas sin las fortalezas necesarias para luchar con la competencia" },
-    { rel: "OD", tipo: "Estrategia de Reorientación", punt: puntajes.OD, desc: "La empresa no puede aprovechar las oportunidades porque carece de preparación adecuada" }
+    { rel: "FO", label: "Fortalezas + Oportunidades", tipo: "Estrategia Ofensiva", punt: puntajes.FO, desc: "Deberá adoptar estrategias de crecimiento", color: "#059669" },
+    { rel: "AF", label: "Amenazas + Fortalezas", tipo: "Estrategia Defensiva", punt: puntajes.AF, desc: "La empresa está preparada para enfrentarse a las amenazas", color: "#2563eb" },
+    { rel: "AD", label: "Amenazas + Debilidades", tipo: "Estrategia de Supervivencia", punt: puntajes.AD, desc: "Se enfrenta a amenazas externas sin las fortalezas necesarias", color: "#d97706" },
+    { rel: "OD", label: "Oportunidades + Debilidades", tipo: "Estrategia de Reorientación", punt: puntajes.OD, desc: "La empresa no puede aprovechar las oportunidades por falta de preparación", color: "#dc2626" }
   ];
 
-  var tablaHtml = '<div class="dafo-results-table-wrapper"><table class="dafo-results-table">';
-  tablaHtml += '<thead><tr><th>Relaciones</th><th>Tipología de estrategia</th><th>Puntuación</th><th>Descripción</th></tr></thead><tbody>';
+  var html = '<div class="dafo-resultados-guardados-card" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:1rem;padding:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,0.04);">';
+  html += '<h3 style="font-size:1rem;font-weight:700;color:#0f172a;margin-bottom:1rem;"><i class="bi bi-bar-chart-fill" style="color:#2563eb;"></i> Resultados de la Matriz FODA</h3>';
+  html += '<div class="dafo-results-summary-grid" style="margin-bottom:1rem;">';
+  html += '<div class="resumen-card-premium"><span class="card-label">Fortalezas</span><div class="puntaje-total-premium">' + itemsF.length + '</div></div>';
+  html += '<div class="resumen-card-premium"><span class="card-label">Debilidades</span><div class="puntaje-total-premium">' + itemsD.length + '</div></div>';
+  html += '<div class="resumen-card-premium"><span class="card-label">Oportunidades</span><div class="puntaje-total-premium">' + itemsO.length + '</div></div>';
+  html += '<div class="resumen-card-premium"><span class="card-label">Amenazas</span><div class="puntaje-total-premium">' + itemsA.length + '</div></div>';
+  html += '</div>';
+
+  html += '<div class="dafo-results-table-wrapper"><table class="dafo-results-table">';
+  html += '<thead><tr><th>Cruce</th><th>Estrategia</th><th>Puntuación</th><th>Interpretación</th></tr></thead><tbody>';
   relaciones.forEach(function(r) {
     var barColor = r.punt >= 70 ? '#059669' : (r.punt >= 40 ? '#d97706' : '#dc2626');
-    tablaHtml += '<tr>';
-    tablaHtml += '<td><strong>' + r.rel + '</strong></td>';
-    tablaHtml += '<td>' + r.tipo + '</td>';
-    tablaHtml += '<td><div class="dafo-score-cell"><div class="dafo-score-bar"><div class="dafo-score-fill" style="width:' + r.punt + '%;background:' + barColor + ';"></div></div><span class="dafo-score-value" style="color:' + barColor + ';">' + r.punt + '%</span></div></td>';
-    tablaHtml += '<td style="font-size:0.82rem;color:#64748b;">' + r.desc + '</td>';
-    tablaHtml += '</tr>';
+    html += '<tr>';
+    html += '<td><strong>' + r.rel + '</strong><br><span style="font-size:0.75rem;color:#64748b;">' + r.label + '</span></td>';
+    html += '<td>' + r.tipo + '</td>';
+    html += '<td><div class="dafo-score-cell"><div class="dafo-score-bar"><div class="dafo-score-fill" style="width:' + r.punt + '%;background:' + barColor + ';"></div></div><span class="dafo-score-value" style="color:' + barColor + ';">' + r.punt + '%</span></div></td>';
+    html += '<td style="font-size:0.82rem;color:#64748b;">' + r.desc + '</td>';
+    html += '</tr>';
   });
-  tablaHtml += '</tbody></table></div>';
-  document.getElementById("dafoResultsDetail").innerHTML = tablaHtml;
+  html += '</tbody></table></div>';
+  html += '<div id="dafoSaveSection" style="display:flex;justify-content:center;gap:1rem;margin-top:1.5rem;padding-top:1.5rem;border-top:2px solid #e2e8f0;">';
+  html += '<button id="dafoGuardarActualizacionBtn" class="btn-primary" style="background:#2563eb;color:white;padding:0.7rem 2rem;font-weight:700;font-size:0.95rem;"><i class="bi bi-check-lg"></i> Guardar actualización</button>';
+  html += '<button id="dafoCancelarActualizacionBtn" class="btn-secondary" style="padding:0.7rem 2rem;font-weight:600;font-size:0.95rem;"><i class="bi bi-x-lg"></i> Cancelar actualización</button>';
+  html += '</div>';
+  html += '</div>';
+
+  if (resultadosGuardados) {
+    resultadosGuardados.innerHTML = html;
+    resultadosGuardados.style.display = "block";
+  }
+
+  // Re-asignar eventos a los botones dinámicos
+  var guardarBtn = document.getElementById("dafoGuardarActualizacionBtn");
+  var cancelarBtn = document.getElementById("dafoCancelarActualizacionBtn");
+  if (guardarBtn) guardarBtn.onclick = function() { guardarDafo(); };
+  if (cancelarBtn) cancelarBtn.onclick = function() { document.getElementById("dafoCancelConfirmModal").style.display = "flex"; };
 
   var alertBanner = document.getElementById("dafoAlertBanner");
   var alertText = document.getElementById("dafoAlertText");
@@ -471,6 +549,7 @@ function cancelarDafo() {
 function iniciarActualizacion() {
   dafoModoActualizacion = true;
   currentStep = 1;
+  scores = {};
   renderDafoUI();
 }
 
@@ -498,14 +577,6 @@ function setupEvents() {
   document.getElementById("dafoCancelConfirmBtn").onclick = function() {
     document.getElementById("dafoCancelConfirmModal").style.display = "none";
     cancelarDafo();
-  };
-
-  document.getElementById("dafoGuardarActualizacionBtn").onclick = function() {
-    guardarDafo();
-  };
-
-  document.getElementById("dafoCancelarActualizacionBtn").onclick = function() {
-    document.getElementById("dafoCancelConfirmModal").style.display = "flex";
   };
 
   document.getElementById("dafoWizardContainer").addEventListener("click", function(e) {

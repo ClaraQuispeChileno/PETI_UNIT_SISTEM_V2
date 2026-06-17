@@ -3499,3 +3499,37 @@
 
 /* ==================== PEST OA — OPORTUNIDADES Y AMENAZAS ==================== */
 .pest-edit-input:focus { outline:none; border-color:#2563eb !important; box-shadow:0 0 0 3px rgba(37,99,235,0.1) !important; }
+
+/* ==================== FODA VISUALIZACIÓN DOS COLUMNAS ==================== */
+.dafo-factores-section-results {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.dafo-factores-section-results > h3 {
+  grid-column: 1 / -1;
+  margin-bottom: 0 !important;
+}
+
+.dafo-factores-section-results > #dafoFactoresGrid {
+  grid-column: 1;
+}
+
+.dafo-factores-section-results > #dafoResultadosGuardados {
+  grid-column: 2;
+  display: block !important;
+  margin-top: 0 !important;
+}
+
+@media (max-width: 1024px) {
+  .dafo-factores-section-results {
+    grid-template-columns: 1fr;
+  }
+  .dafo-factores-section-results > h3,
+  .dafo-factores-section-results > #dafoFactoresGrid,
+  .dafo-factores-section-results > #dafoResultadosGuardados {
+    grid-column: 1;
+  }
+}
