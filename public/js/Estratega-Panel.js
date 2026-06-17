@@ -49,6 +49,7 @@ let chartRadarM04 = null; // Instancia de gráfico Chart.js
 let m04CompletadoPreviamente = false; // Si ya se completó el diagnóstico antes
 let m04ModoActualizacion = false; // Si estamos en modo actualización (vs nuevo)
 let m04FodaItems = []; // Arreglo local de fortalezas/debilidades para edición
+let m04EditingId = null; // ID del elemento FODA en edición
 
 // Estado del Wizard Identidad Corporativa (M01)
 let currentStepM01 = 1;
@@ -949,18 +950,12 @@ function renderWizardBlock() {
     cancelBtn.style.display = m04ModoActualizacion ? '' : 'none';
   }
   
-  // Cambiar texto y estilo del botón siguiente en bloque 5 completado
+  // Texto único para el botón siguiente (siempre "Siguiente bloque")
   const nextBtn = document.getElementById('wizardNextBtn');
   if (nextBtn) {
-    if (currentStepM04 === 5 && answeredInBlock === 5) {
-      nextBtn.innerHTML = 'Enviar autodiagnóstico <i class="bi bi-send-fill"></i>';
-      nextBtn.classList.remove('btn-primary');
-      nextBtn.classList.add('btn-primary-solid');
-    } else {
-      nextBtn.innerHTML = 'Siguiente bloque <i class="bi bi-arrow-right"></i>';
-      nextBtn.classList.remove('btn-primary-solid');
-      nextBtn.classList.add('btn-primary');
-    }
+    nextBtn.innerHTML = 'Siguiente bloque <i class="bi bi-arrow-right"></i>';
+    nextBtn.classList.remove('btn-primary-solid');
+    nextBtn.classList.add('btn-primary');
   }
 }
 
@@ -1199,7 +1194,7 @@ async function mostrarPantallaResultados() {
       alertBanner.style.display = 'flex';
       alertBanner.style.justifyContent = 'center';
     }
-    if (alertText) alertText.textContent = 'Este planeamiento se está actualizando, no olvide guardar sus actualizaciones.';
+    if (alertText) alertText.textContent = 'Este planeamiento se está actualizando, no olvide guardar el registro.';
     if (updateBtn) updateBtn.style.display = 'none';
     if (saveSection) saveSection.style.display = 'flex';
   } else {
@@ -1379,17 +1374,27 @@ function renderFodaTables() {
   const fortalezasList = [];
   const debilidadesList = [];
   
-  var idx = 0;
+  var fortIdx = 0;
+  var debIdx = 0;
   m04FodaItems.forEach(item => {
-    idx++;
+    if (item.tipo === 'fortaleza') { fortIdx++; } else { debIdx++; }
+    var num = item.tipo === 'fortaleza' ? fortIdx : debIdx;
+    var isEditing = (m04EditingId === String(item.id));
+    var descHtml, actionsHtml;
+    if (isEditing) {
+      descHtml = '<input type="text" class="foda-edit-input" value="' + escapeHtml(item.descripcion) + '" style="width:100%;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9em;">';
+      actionsHtml = '<button class="btn-small btn-success foda-save-btn" data-id="' + item.id + '" title="Guardar"><i class="bi bi-check-lg"></i></button>'
+        + '<button class="btn-small btn-secondary foda-cancel-btn" data-id="' + item.id + '" title="Cancelar"><i class="bi bi-x-lg"></i></button>';
+    } else {
+      descHtml = '<div style="font-weight:600;color:#1e293b;line-height:1.5;" class="foda-descripcion">' + escapeHtml(item.descripcion) + '</div>';
+      actionsHtml = '<button class="btn-small btn-secondary foda-edit-btn" data-id="' + item.id + '" title="Editar"><i class="bi bi-pencil"></i></button>'
+        + '<button class="btn-small btn-danger foda-delete-btn" data-id="' + item.id + '" title="Eliminar"><i class="bi bi-trash"></i></button>';
+    }
     var rowHtml = `
       <tr data-foda-id="${item.id}">
-        <td style="text-align:center;"><div class="pregunta-num-col" style="margin:0 auto;">${idx}</div></td>
-        <td><div style="font-weight:600;color:#1e293b;line-height:1.5;" class="foda-descripcion">${escapeHtml(item.descripcion)}</div></td>
-        <td style="text-align:center;">
-          <button class="btn-small btn-secondary foda-edit-btn" data-id="${item.id}" title="Editar"><i class="bi bi-pencil"></i></button>
-          <button class="btn-small btn-danger foda-delete-btn" data-id="${item.id}" title="Eliminar"><i class="bi bi-trash"></i></button>
-        </td>
+        <td style="text-align:center;"><div class="pregunta-num-col" style="margin:0 auto;">${num}</div></td>
+        <td>${descHtml}</td>
+        <td style="text-align:center;white-space:nowrap;">${actionsHtml}</td>
       </tr>
     `;
     if (item.tipo === 'fortaleza') {
@@ -3359,6 +3364,7 @@ function setupEventListeners() {
       } else {
         m04ModoActualizacion = false;
         cargarCadenaValor();
+        showToast('Actualizaciones canceladas', 'info');
       }
     };
   }
@@ -3373,6 +3379,7 @@ function setupEventListeners() {
       } catch (_) {}
       m04ModoActualizacion = false;
       await cargarCadenaValor();
+      showToast('Actualizaciones canceladas', 'info');
     };
   }
   const m04CancelCloseBtn = document.getElementById('m04CancelCloseBtn');
@@ -3429,36 +3436,33 @@ function setupEventListeners() {
     }
     var editBtn = e.target.closest('.foda-edit-btn');
     if (editBtn) {
-      var id = editBtn.getAttribute('data-id');
-      var tr = editBtn.closest('tr');
-      var descEl = tr.querySelector('.foda-descripcion');
-      if (!tr || !descEl) return;
-      var currentDesc = descEl.textContent.trim();
-      descEl.innerHTML = '<input type="text" class="foda-edit-input" value="' + escapeHtml(currentDesc) + '" style="width:100%;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9em;">';
-      var input = descEl.querySelector('.foda-edit-input');
-      input.focus();
-      input.onkeydown = function(ev) {
-        if (ev.key === 'Enter') {
-          var newDesc = ev.target.value.trim();
-          if (newDesc) {
-            m04FodaItems.forEach(function(item) {
-              if (String(item.id) === id) item.descripcion = newDesc;
-            });
-            renderFodaTables();
-          }
-        } else if (ev.key === 'Escape') {
-          renderFodaTables();
-        }
-      };
-      input.onblur = function() {
-        var newDesc = descEl.querySelector('.foda-edit-input').value.trim();
-        if (newDesc && newDesc !== currentDesc) {
+      m04EditingId = editBtn.getAttribute('data-id');
+      renderFodaTables();
+      // Enfocar el input después de re-render
+      var input = document.querySelector('tr[data-foda-id="' + m04EditingId + '"] .foda-edit-input');
+      if (input) input.focus();
+      return;
+    }
+    var saveBtn = e.target.closest('.foda-save-btn');
+    if (saveBtn) {
+      var id = saveBtn.getAttribute('data-id');
+      var input = document.querySelector('tr[data-foda-id="' + id + '"] .foda-edit-input');
+      if (input) {
+        var newDesc = input.value.trim();
+        if (newDesc) {
           m04FodaItems.forEach(function(item) {
             if (String(item.id) === id) item.descripcion = newDesc;
           });
         }
-        renderFodaTables();
-      };
+      }
+      m04EditingId = null;
+      renderFodaTables();
+      return;
+    }
+    var cancelEditBtn = e.target.closest('.foda-cancel-btn');
+    if (cancelEditBtn) {
+      m04EditingId = null;
+      renderFodaTables();
       return;
     }
     var addBtn = e.target.closest('.foda-add-btn');
@@ -3493,6 +3497,7 @@ function setupEventListeners() {
         }
         // 2. Luego guardar respuestas y recargar
         await finalizarDiagnostico();
+        showToast('Los cambios fueron guardados', 'success');
       } catch (err) {
         console.error('[M04] Error al guardar resultados:', err);
         showToast('Error al guardar: ' + err.message, 'error');
@@ -3500,15 +3505,11 @@ function setupEventListeners() {
     };
   }
 
-  // Cancelar actualizaciones M04 (descarta cambios locales, recarga desde BD)
+  // Cancelar actualizaciones M04 (muestra confirmación, luego descarta cambios)
   var cancelarBtn = document.getElementById('cancelarActualizacionM04Btn');
   if (cancelarBtn) {
-    cancelarBtn.onclick = async function() {
-      try {
-        await supabaseClient.from('autodiag_cadena').delete().eq('plan_id', currentPlanId);
-      } catch (_) {}
-      m04ModoActualizacion = false;
-      await cargarCadenaValor();
+    cancelarBtn.onclick = function() {
+      document.getElementById('m04CancelConfirmModal').style.display = 'flex';
     };
   }
 
