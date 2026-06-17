@@ -48,6 +48,8 @@ var respuestas = {};
 var completadoPreviamente = false;
 var modoActualizacion = false;
 var chartInstance = null;
+var _pestEditingId = null;
+var _pestOALocal = null;
 
 function getKey(step, idx) {
   if (typeof step === "string") return step + "_" + idx;
@@ -111,17 +113,8 @@ function renderBlock() {
   var f = preguntasPest[currentStep-1]; if (!f) return;
   var bt = document.getElementById("pestBloqueTitulo"); if (bt) bt.innerText = f.label.toUpperCase() + " -- ITEMS " + ((currentStep-1)*5+1) + " AL " + (currentStep*5);
 
-  var tipEl = document.getElementById("pestTipText");
-  if (tipEl) {
-    var tips = [
-      "Evalue como afectan los cambios sociales y demograficos al sector donde opera la empresa.",
-      "Evalue el impacto de las regulaciones politicas, fiscales y laborales en el sector.",
-      "Evalue las condiciones economicas generales y su influencia en el sector.",
-      "Evalue el grado de influencia de la tecnologia y la innovacion en el sector.",
-      "Evalue como las variables medioambientales y ecologicas impactan en el sector."
-    ];
-    tipEl.innerText = tips[currentStep-1];
-  }
+  var tipBanner = document.getElementById("pestTipBanner");
+  if (tipBanner) tipBanner.style.display = modoActualizacion ? "none" : "";
 
   var html = "", answ = 0;
   f.variables.forEach(function(v, i) {
@@ -154,7 +147,7 @@ function renderBlock() {
   var pn = document.getElementById("pestNextBtn");
   if (pn) {
     pn.disabled = (answ < t);
-    if (currentStep === 5 && answ === t) {
+    if (currentStep === 5 && answ === t && !modoActualizacion) {
       pn.innerHTML = "Finalizar <i class='bi bi-check-lg'></i>";
       pn.classList.remove("btn-primary"); pn.classList.add("btn-primary-solid");
     } else {
@@ -171,7 +164,13 @@ function anterior() {
 function siguiente() {
   if (!stepComplete(currentStep)) { if (typeof showToast !== "undefined") showToast("Responda todas las preguntas antes de continuar.", "error"); return; }
   if (currentStep < 5) { currentStep++; renderStepper(); renderBlock(); document.getElementById("m07").scrollIntoView({ behavior:"smooth", block:"start" }); }
-  else finalizar();
+  else {
+    if (modoActualizacion) {
+      mostrarResultadosPendientes();
+    } else {
+      finalizar();
+    }
+  }
 }
 function responder(key, score) {
   respuestas[key] = score; renderStepper(); renderBlock();
@@ -208,17 +207,37 @@ function finalizar() {
   }).then(function() {
     return sincFoda(proms);
   }).then(function() {
+    if (_pestOALocal !== null) {
+      return supabaseClient.from("pest_oa").delete().eq("plan_id", currentPlanId).then(function() {
+        if (_pestOALocal.length > 0) {
+          var inserts = _pestOALocal.map(function(item) {
+            return { plan_id: currentPlanId, tipo: item.tipo, descripcion: item.descripcion, orden: item.orden || 0 };
+          });
+          return supabaseClient.from("pest_oa").insert(inserts);
+        }
+      });
+    }
+  }).then(function() {
     completadoPreviamente = true;
+    modoActualizacion = false;
     var badge = document.getElementById("m07EstadoBadge");
-    if (badge) { badge.innerText = "Procesado"; badge.className = "m05-badge-progreso procesado"; }
+    if (badge) { badge.innerText = "COMPLETO"; badge.className = "m05-badge-progreso completado"; }
+    var ab = document.getElementById("pestAlertBanner");
+    if (ab) { ab.style.display = "flex"; ab.style.justifyContent = "space-between"; ab.style.alignItems = "center"; }
+    var at = document.getElementById("pestAlertText");
+    if (at) at.textContent = "Este planeamiento ya cuenta con un analisis PEST procesado.";
+    var bb = document.getElementById("pestBackBtn");
+    if (bb) bb.style.display = "";
+    var ua = document.getElementById("pestUpdateActions");
+    if (ua) ua.style.display = "none";
     var wc = document.getElementById("pestWizardContainer"); if (wc) wc.style.display = "none";
     var rc = document.getElementById("pestResultsContainer"); if (rc) rc.style.display = "block";
     document.getElementById("m07").scrollIntoView({ behavior:"smooth", block:"start" });
     mostrarResultados(proms, promsNorm, avgNorm, recs);
+    cargarPestOA();
     if (typeof showToast !== "undefined") showToast("Analisis PEST guardado.", "success");
     if (typeof cargarDashboard !== "undefined") cargarDashboard();
   }).then(null, function(e) { console.error("Error finalizarPEST:", e);
-    console.error("Error finalizarPEST:", e);
     if (typeof showToast !== "undefined") showToast("Error al guardar: " + e.message, "error");
   });
 }
@@ -272,25 +291,6 @@ function mostrarResultados(proms, promsNorm, avgNorm, recs) {
   var pbk = document.getElementById("pestBreakdown"); if (pbk) pbk.innerHTML = bd;
 
   renderChart(promsNorm);
-
-  var tbOp = document.querySelector("#pestTablaOp tbody"), tbAm = document.querySelector("#pestTablaAm tbody");
-  if (tbOp) tbOp.innerHTML = ""; if (tbAm) tbAm.innerHTML = "";
-  var co = 0, ca = 0;
-  preguntasPest.forEach(function(f) {
-    var raw = proms[f.factor]; if (raw === null) return;
-    var norm = raw / 4;
-    if (norm >= 0.65) {
-      if (tbAm) tbAm.insertAdjacentHTML("beforeend", "<tr><td><div class='chip-trazabilidad chip-trazabilidad-bloque'>" + f.label + "</div></td><td>Impacto promedio: " + raw.toFixed(1) + "/4 (normalizado: " + norm.toFixed(2) + ")</td><td style='text-align:center;'><span class='chip-trazabilidad-score debilidad'><i class='bi bi-exclamation-triangle-fill'></i> " + raw.toFixed(1) + "/4</span></td></tr>");
-      ca++;
-    } else if (norm <= 0.35) {
-      if (tbOp) tbOp.insertAdjacentHTML("beforeend", "<tr><td><div class='chip-trazabilidad chip-trazabilidad-bloque'>" + f.label + "</div></td><td>Impacto promedio: " + raw.toFixed(1) + "/4 (normalizado: " + norm.toFixed(2) + ")</td><td style='text-align:center;'><span class='chip-trazabilidad-score fortaleza'><i class='bi bi-sun-fill'></i> " + raw.toFixed(1) + "/4</span></td></tr>");
-      co++;
-    }
-  });
-  var pco = document.getElementById("pestCountOp"); if (pco) pco.innerText = co;
-  var pca = document.getElementById("pestCountAm"); if (pca) pca.innerText = ca;
-  if (co === 0 && tbOp) tbOp.innerHTML = "<tr class='empty-state-row'><td colspan='3'>No se detectaron Oportunidades (normalizado menor a 0.35)</td></tr>";
-  if (ca === 0 && tbAm) tbAm.innerHTML = "<tr class='empty-state-row'><td colspan='3'>No se detectaron Amenazas (normalizado mayor a 0.65)</td></tr>";
 }
 
 function renderChart(promsNorm) {
@@ -338,19 +338,71 @@ function renderChart(promsNorm) {
 }
 function mostrarResultadosUI() {
   completadoPreviamente = true;
-  var badge = document.getElementById("m07EstadoBadge"); if (badge) { badge.innerText = "Procesado"; badge.className = "m05-badge-progreso procesado"; }
-  var ab = document.getElementById("pestAlertBanner"); if (ab) { ab.style.display = "flex"; ab.style.justifyContent = "space-between"; }
+  var badge = document.getElementById("m07EstadoBadge");
+  if (badge) {
+    if (modoActualizacion) {
+      badge.innerText = "ACTUALIZANDO";
+      badge.className = "m05-badge-progreso actualizando";
+    } else {
+      badge.innerText = "COMPLETO";
+      badge.className = "m05-badge-progreso completado";
+    }
+  }
+  var ab = document.getElementById("pestAlertBanner");
+  if (ab) {
+    ab.style.display = "flex";
+    ab.style.alignItems = "center";
+    if (modoActualizacion) {
+      ab.style.justifyContent = "center";
+      document.getElementById("pestAlertText").textContent = "Este planeamiento se esta actualizando, no olvide guardar su registro.";
+      var bb = document.getElementById("pestBackBtn");
+      if (bb) bb.style.display = "none";
+      var ua = document.getElementById("pestUpdateActions");
+      if (ua) ua.style.display = "flex";
+    } else {
+      ab.style.justifyContent = "space-between";
+      document.getElementById("pestAlertText").textContent = "Este planeamiento ya cuenta con un analisis PEST procesado.";
+      var bb2 = document.getElementById("pestBackBtn");
+      if (bb2) bb2.style.display = "";
+      var ua2 = document.getElementById("pestUpdateActions");
+      if (ua2) ua2.style.display = "none";
+    }
+  }
   var wc = document.getElementById("pestWizardContainer"); if (wc) wc.style.display = "none";
   var rc = document.getElementById("pestResultsContainer"); if (rc) rc.style.display = "block";
   var proms = {}; preguntasPest.forEach(function(f){proms[f.factor] = promedio(f.factor);});
   var promsNorm = {}; preguntasPest.forEach(function(f){promsNorm[f.factor + "_norm"] = proms[f.factor] !== null ? proms[f.factor] / 4 : null;});
   var avgNorm = Object.values(promsNorm).reduce(function(a,b){return a+b;}, 0) / 5;
   mostrarResultados(proms, promsNorm, avgNorm, []);
+  cargarPestOA();
 }
 function mostrarWizardUI() {
   completadoPreviamente = false;
-  var badge = document.getElementById("m07EstadoBadge"); if (badge) { badge.innerText = Object.keys(respuestas).length ? "En edicion" : "No iniciado"; badge.className = "m05-badge-progreso" + (Object.keys(respuestas).length ? " edicion" : ""); }
-  var ab = document.getElementById("pestAlertBanner"); if (ab) ab.style.display = "none";
+  var badge = document.getElementById("m07EstadoBadge");
+  if (badge) {
+    if (modoActualizacion) {
+      badge.innerText = "ACTUALIZANDO";
+      badge.className = "m05-badge-progreso actualizando";
+    } else {
+      badge.innerText = "NO INICIADO";
+      badge.className = "m05-badge-progreso no-iniciado";
+    }
+  }
+  var ab = document.getElementById("pestAlertBanner");
+  if (ab) {
+    if (modoActualizacion) {
+      ab.style.display = "flex";
+      ab.style.justifyContent = "center";
+      ab.style.alignItems = "center";
+      document.getElementById("pestAlertText").textContent = "Este planeamiento se esta actualizando, no olvide guardar su registro.";
+      var bb = document.getElementById("pestBackBtn");
+      if (bb) bb.style.display = "none";
+      var ua = document.getElementById("pestUpdateActions");
+      if (ua) ua.style.display = "none";
+    } else {
+      ab.style.display = "none";
+    }
+  }
   var wc = document.getElementById("pestWizardContainer"); if (wc) wc.style.display = "block";
   var rc = document.getElementById("pestResultsContainer"); if (rc) rc.style.display = "none";
   currentStep = 1; renderStepper(); renderBlock();
@@ -401,6 +453,20 @@ function setupEvents() {
   var pcb = document.getElementById("pestCancelBtn"); if (pcb) pcb.onclick = function() { modoActualizacion = false; cargarPest(); };
   var pbb = document.getElementById("pestBackBtn"); if (pbb) pbb.onclick = function() {
     modoActualizacion = true; completadoPreviamente = false;
+    respuestas = {};
+    _pestOALocal = [];
+    _pestEditingId = null;
+    var badge = document.getElementById("m07EstadoBadge");
+    if (badge) { badge.innerText = "ACTUALIZANDO"; badge.className = "m05-badge-progreso actualizando"; }
+    var ab = document.getElementById("pestAlertBanner");
+    if (ab) { ab.style.display = "flex"; ab.style.justifyContent = "center"; ab.style.alignItems = "center"; }
+    var at = document.getElementById("pestAlertText");
+    if (at) at.textContent = "Este planeamiento se esta actualizando, no olvide guardar su registro.";
+    if (pbb) pbb.style.display = "none";
+    var tipBanner = document.getElementById("pestTipBanner");
+    if (tipBanner) tipBanner.style.display = "none";
+    var ua = document.getElementById("pestUpdateActions");
+    if (ua) ua.style.display = "none";
     var wc = document.getElementById("pestWizardContainer"); if (wc) wc.style.display = "block";
     var rc = document.getElementById("pestResultsContainer"); if (rc) rc.style.display = "none";
     currentStep = 1; renderStepper(); renderBlock();
@@ -414,6 +480,237 @@ function setupEvents() {
     var stepEl = e.target.closest(".stepper-step");
     if (stepEl && !stepEl.classList.contains("locked")) { currentStep = parseInt(stepEl.getAttribute("data-step")); renderStepper(); renderBlock(); }
   };
+  // Pest OA events
+  var poa1 = document.getElementById("pestAddOpBtn"); if (poa1) poa1.addEventListener("click", function() { agregarPestOA("oportunidad"); });
+  var poa2 = document.getElementById("pestAddAmBtn"); if (poa2) poa2.addEventListener("click", function() { agregarPestOA("amenaza"); });
+  var poa3 = document.getElementById("pestOpInput"); if (poa3) poa3.addEventListener("keydown", function(e) { if (e.key === "Enter") agregarPestOA("oportunidad"); });
+  var poa4 = document.getElementById("pestAmInput"); if (poa4) poa4.addEventListener("keydown", function(e) { if (e.key === "Enter") agregarPestOA("amenaza"); });
+  var poa5 = document.getElementById("pestTablaOp"); if (poa5) poa5.addEventListener("click", _pestClickHandler);
+  var poa6 = document.getElementById("pestTablaAm"); if (poa6) poa6.addEventListener("click", _pestClickHandler);
+  var pg = document.getElementById("pestGuardarActualizacionesBtn"); if (pg) pg.addEventListener("click", guardarActualizacionesPest);
+  var pcancel = document.getElementById("pestCancelarActualizacionesBtn"); if (pcancel) pcancel.addEventListener("click", cancelarActualizacionesPest);
+  var pcc = document.getElementById("pestCancelConfirmBtn"); if (pcc) pcc.addEventListener("click", _confirmarCancelarPest);
+}
+
+// ==================== PEST OA — OPORTUNIDADES Y AMENAZAS EDITABLES ====================
+function cargarPestOA() {
+  if (!currentPlanId) return;
+  supabaseClient.from("pest_oa").select("*").eq("plan_id", currentPlanId).order("orden").order("id").then(function(res) {
+    var items = res.data || [];
+    if (modoActualizacion) {
+      _pestOALocal = JSON.parse(JSON.stringify(items));
+      renderPestOATables(_pestOALocal);
+    } else {
+      _pestOALocal = null;
+      renderPestOATables(items);
+    }
+  }).then(null, function() {
+    if (modoActualizacion) { _pestOALocal = []; renderPestOATables(_pestOALocal); }
+    else { renderPestOATables([]); }
+  });
+}
+
+function renderPestOATables(items) {
+  var tbOp = document.querySelector("#pestTablaOp tbody");
+  var tbAm = document.querySelector("#pestTablaAm tbody");
+  if (!tbOp || !tbAm) return;
+  var ops = items.filter(function(i) { return i.tipo === "oportunidad"; });
+  var ams = items.filter(function(i) { return i.tipo === "amenaza"; });
+  tbOp.innerHTML = "";
+  tbAm.innerHTML = "";
+  ops.forEach(function(item, idx) { tbOp.insertAdjacentHTML("beforeend", _pestOARow(item, idx + 1)); });
+  ams.forEach(function(item, idx) { tbAm.insertAdjacentHTML("beforeend", _pestOARow(item, idx + 1)); });
+  if (ops.length === 0) tbOp.innerHTML = "<tr class='empty-state-row'><td colspan='3'><i class='bi bi-sun'></i><br>No se registraron oportunidades</td></tr>";
+  if (ams.length === 0) tbAm.innerHTML = "<tr class='empty-state-row'><td colspan='3'><i class='bi bi-exclamation-triangle'></i><br>No se registraron amenazas</td></tr>";
+  var pco = document.getElementById("pestCountOp"); if (pco) pco.innerText = ops.length;
+  var pca = document.getElementById("pestCountAm"); if (pca) pca.innerText = ams.length;
+}
+
+function _pestOARow(item, num) {
+  var edit = (_pestEditingId === item.id);
+  var desc = edit
+    ? '<input type="text" class="pest-edit-input" value="' + _escPest(item.descripcion) + '" data-oid="' + item.id + '" style="width:100%;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9em;">'
+    : '<div style="font-weight:600;color:#1e293b;line-height:1.5;">' + _escPest(item.descripcion) + '</div>';
+  var acts = edit
+    ? '<button class="btn-small btn-success pest-save-btn" data-oid="' + item.id + '" title="Guardar"><i class="bi bi-check-lg"></i></button><button class="btn-small btn-secondary pest-cancel-btn" title="Cancelar"><i class="bi bi-x-lg"></i></button>'
+    : '<button class="btn-small btn-secondary pest-edit-btn" data-oid="' + item.id + '" title="Editar"><i class="bi bi-pencil"></i></button><button class="btn-small btn-danger pest-delete-btn" data-oid="' + item.id + '" title="Eliminar"><i class="bi bi-trash"></i></button>';
+  return '<tr data-oid="' + item.id + '"><td style="text-align:center;"><div class="pregunta-num-col" style="margin:0 auto;">' + num + '</div></td><td>' + desc + '</td><td style="text-align:center;white-space:nowrap;">' + acts + '</td></tr>';
+}
+
+function _escPest(t) { return t ? String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;") : ""; }
+
+function agregarPestOA(tipo) {
+  if (typeof isObjetivosEditable !== "undefined" && !isObjetivosEditable()) { if (typeof showToast !== "undefined") showToast("No se puede modificar en un plan en revision.", "error"); return; }
+  var input = document.getElementById(tipo === "oportunidad" ? "pestOpInput" : "pestAmInput");
+  if (!input || !input.value.trim()) { if (typeof showToast !== "undefined") showToast("Escribe un enunciado.", "error"); return; }
+  if (modoActualizacion && _pestOALocal !== null) {
+    var newId = Date.now() + Math.random();
+    _pestOALocal.push({ id: newId, tipo: tipo, descripcion: input.value.trim(), orden: 0 });
+    input.value = "";
+    renderPestOATables(_pestOALocal);
+  } else {
+    supabaseClient.from("pest_oa").insert({
+      plan_id: currentPlanId, tipo: tipo, descripcion: input.value.trim(), orden: 0
+    }).then(function() {
+      input.value = "";
+      cargarPestOA();
+    }).then(null, function(e) { if (typeof showToast !== "undefined") showToast("Error al guardar: " + e.message, "error"); });
+  }
+}
+
+function _pestClickHandler(e) {
+  var btn = e.target.closest("button");
+  if (!btn) return;
+  var oid = btn.getAttribute("data-oid");
+  var isLocal = _pestOALocal !== null;
+  var source = isLocal ? _pestOALocal : null;
+
+  if (btn.classList.contains("pest-edit-btn")) {
+    _pestEditingId = typeof oid === "string" && oid.indexOf(".") > -1 ? parseFloat(oid) : parseInt(oid);
+    if (isLocal) renderPestOATables(_pestOALocal);
+    else cargarPestOA();
+  } else if (btn.classList.contains("pest-delete-btn")) {
+    if (!confirm("Eliminar este elemento?")) return;
+    if (isLocal) {
+      var idx = _pestOALocal.findIndex(function(i) { return String(i.id) === oid; });
+      if (idx > -1) _pestOALocal.splice(idx, 1);
+      renderPestOATables(_pestOALocal);
+    } else {
+      supabaseClient.from("pest_oa").delete().eq("id", oid).then(function() { cargarPestOA(); }).then(null, function(e) { if (typeof showToast !== "undefined") showToast("Error al eliminar: " + e.message, "error"); });
+    }
+  } else if (btn.classList.contains("pest-save-btn")) {
+    var input = document.querySelector('.pest-edit-input[data-oid="' + oid + '"]');
+    if (!input || !input.value.trim()) { if (typeof showToast !== "undefined") showToast("El enunciado no puede estar vacio.", "error"); return; }
+    if (isLocal) {
+      var item = _pestOALocal.find(function(i) { return String(i.id) === oid; });
+      if (item) item.descripcion = input.value.trim();
+      _pestEditingId = null;
+      renderPestOATables(_pestOALocal);
+    } else {
+      supabaseClient.from("pest_oa").update({ descripcion: input.value.trim() }).eq("id", oid).then(function() {
+        _pestEditingId = null;
+        cargarPestOA();
+      }).then(null, function(e) { if (typeof showToast !== "undefined") showToast("Error al guardar: " + e.message, "error"); });
+    }
+  } else if (btn.classList.contains("pest-cancel-btn")) {
+    _pestEditingId = null;
+    if (isLocal) renderPestOATables(_pestOALocal);
+    else cargarPestOA();
+  }
+}
+
+function mostrarResultadosPendientes() {
+  var proms = {};
+  preguntasPest.forEach(function(f) { proms[f.factor] = promedio(f.factor); });
+  var promsNorm = {};
+  preguntasPest.forEach(function(f) { promsNorm[f.factor + "_norm"] = proms[f.factor] !== null ? proms[f.factor] / 4 : null; });
+  var avgRaw = Object.values(proms).reduce(function(a,b){return a+b;}, 0) / 5;
+  var avgNorm = avgRaw / 4;
+
+  var recs = [];
+  if (avgNorm >= 0.65) recs.push("ALTO IMPACTO del entorno general. Factores externos desfavorables en su mayoria.");
+  else if (avgNorm >= 0.35) recs.push("IMPACTO MODERADO del entorno general. Existen riesgos y oportunidades balanceados.");
+  else recs.push("BAJO IMPACTO del entorno general. Factores externos favorables en su mayoria.");
+
+  mostrarResultados(proms, promsNorm, avgNorm, recs);
+
+  var wc = document.getElementById("pestWizardContainer"); if (wc) wc.style.display = "none";
+  var rc = document.getElementById("pestResultsContainer"); if (rc) rc.style.display = "block";
+  document.getElementById("m07").scrollIntoView({ behavior:"smooth", block:"start" });
+
+  var badge = document.getElementById("m07EstadoBadge");
+  if (badge) { badge.innerText = "ACTUALIZANDO"; badge.className = "m05-badge-progreso actualizando"; }
+
+  var ab = document.getElementById("pestAlertBanner");
+  if (ab) { ab.style.display = "flex"; ab.style.justifyContent = "center"; ab.style.alignItems = "center"; }
+  var at = document.getElementById("pestAlertText");
+  if (at) at.textContent = "Este planeamiento se esta actualizando, no olvide guardar su registro.";
+  var bb = document.getElementById("pestBackBtn");
+  if (bb) bb.style.display = "none";
+
+  var ua = document.getElementById("pestUpdateActions");
+  if (ua) ua.style.display = "flex";
+
+  cargarPestOA();
+}
+
+function guardarActualizacionesPest() {
+  var proms = {};
+  preguntasPest.forEach(function(f) { proms[f.factor] = promedio(f.factor); });
+  var promsNorm = {};
+  preguntasPest.forEach(function(f) { promsNorm[f.factor + "_norm"] = proms[f.factor] !== null ? proms[f.factor] / 4 : null; });
+  var avgRaw = Object.values(proms).reduce(function(a,b){return a+b;}, 0) / 5;
+  var avgNorm = avgRaw / 4;
+
+  var recs = [];
+  if (avgNorm >= 0.65) recs.push("ALTO IMPACTO del entorno general. Factores externos desfavorables en su mayoria.");
+  else if (avgNorm >= 0.35) recs.push("IMPACTO MODERADO del entorno general. Existen riesgos y oportunidades balanceados.");
+  else recs.push("BAJO IMPACTO del entorno general. Factores externos favorables en su mayoria.");
+
+  supabaseClient.from("pest_resultados").upsert({
+    plan_id: currentPlanId, usuario_id: currentUser ? currentUser.id : null, estado:"procesado",
+    resultados:{ promedios:proms, normalizados:promsNorm, respuestas:respuestas }, recomendaciones:recs
+  }, { onConflict:"plan_id" }).then(function() {
+    return supabaseClient.from("plan_contenido").upsert({
+      plan_id: currentPlanId, modulo_id:"M07",
+      contenido:{ promedios:proms, normalizados:promsNorm, respuestas:respuestas },
+      completado:true, completado_fecha: new Date()
+    }, { onConflict:"plan_id, modulo_id" });
+  }).then(function() {
+    return supabaseClient.from("auditoria").insert({
+      usuario_id: currentUser ? currentUser.id : null, modulo:"M07",
+      accion: "ACTUALIZAR",
+      detalle:"Analisis PEST del entorno general actualizado."
+    });
+  }).then(function() {
+    return sincFoda(proms);
+  }).then(function() {
+    if (_pestOALocal !== null) {
+      return supabaseClient.from("pest_oa").delete().eq("plan_id", currentPlanId).then(function() {
+        if (_pestOALocal.length > 0) {
+          var inserts = _pestOALocal.map(function(item) {
+            return { plan_id: currentPlanId, tipo: item.tipo, descripcion: item.descripcion, orden: item.orden || 0 };
+          });
+          return supabaseClient.from("pest_oa").insert(inserts);
+        }
+      });
+    }
+  }).then(function() {
+    completadoPreviamente = true;
+    modoActualizacion = false;
+    _pestOALocal = null;
+    _pestEditingId = null;
+    var badge = document.getElementById("m07EstadoBadge");
+    if (badge) { badge.innerText = "COMPLETO"; badge.className = "m05-badge-progreso completado"; }
+    var ab = document.getElementById("pestAlertBanner");
+    if (ab) { ab.style.display = "flex"; ab.style.justifyContent = "space-between"; ab.style.alignItems = "center"; }
+    var at = document.getElementById("pestAlertText");
+    if (at) at.textContent = "Este planeamiento ya cuenta con un analisis PEST procesado.";
+    var bb = document.getElementById("pestBackBtn");
+    if (bb) bb.style.display = "";
+    var ua = document.getElementById("pestUpdateActions");
+    if (ua) ua.style.display = "none";
+    mostrarResultados(proms, promsNorm, avgNorm, recs);
+    cargarPestOA();
+    if (typeof showToast !== "undefined") showToast("Datos guardados correctamente.", "success");
+    if (typeof cargarDashboard !== "undefined") cargarDashboard();
+  }).then(null, function(e) {
+    if (typeof showToast !== "undefined") showToast("Error al guardar: " + e.message, "error");
+  });
+}
+
+function cancelarActualizacionesPest() {
+  document.getElementById("pestCancelConfirmModal").style.display = "flex";
+}
+
+function _confirmarCancelarPest() {
+  document.getElementById("pestCancelConfirmModal").style.display = "none";
+  modoActualizacion = false;
+  _pestOALocal = null;
+  _pestEditingId = null;
+  respuestas = {};
+  if (typeof showToast !== "undefined") showToast("Actualizaciones canceladas.", "info");
+  cargarPest();
 }
 
 window.cargarPest = cargarPest;

@@ -3220,3 +3220,6 @@
 /* ==================== PORTER OA — OPORTUNIDADES Y AMENAZAS ==================== */
 #m06 .trazabilidad-seccion-header h3 i { font-size:1rem; }
 .porter-edit-input:focus { outline:none; border-color:#2563eb !important; box-shadow:0 0 0 3px rgba(37,99,235,0.1) !important; }
+
+/* ==================== PEST OA — OPORTUNIDADES Y AMENAZAS ==================== */
+.pest-edit-input:focus { outline:none; border-color:#2563eb !important; box-shadow:0 0 0 3px rgba(37,99,235,0.1) !important; }
