@@ -22,7 +22,7 @@
       <a href="#" class="nav-item" data-section="m03"><i class="bi bi-bullseye"></i><span> Objetivos</span></a>
       <a href="#" class="nav-item" data-section="m04"><i class="bi bi-link"></i><span> Cadena de valor</span></a>
       <a href="#" class="nav-item" data-section="m05"><i class="bi bi-pie-chart"></i><span> Matriz BCG</span></a>
-      <a href="#" class="nav-item" data-section="m06"><i class="bi bi-chess-board"></i><span> Porter</span></a>
+      <a href="#" class="nav-item" data-section="m06"><i class="bi bi-diagram-3-fill"></i><span> Porter</span></a>
       <a href="#" class="nav-item" data-section="m07"><i class="bi bi-globe"></i><span> PEST</span></a>
       <a href="#" class="nav-item" data-section="m08"><i class="bi bi-table"></i><span> FODA</span></a>
       <a href="#" class="nav-item" data-section="m09"><i class="bi bi-tasks"></i><span> CAME</span></a>
@@ -547,15 +547,7 @@
 
         <!-- CASO A: RESULTADOS Y VISUALIZACIÓN GRÁFICA -->
         <div id="m05ResultsContainer" style="display: none;">
-          <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
-            <div>
-              <h2 style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin-bottom: 0.25rem; letter-spacing: -0.02em;">
-                <i class="bi bi-grid-3x3-gap-fill" style="color: #2563eb;"></i> Matriz BCG Generada
-              </h2>
-              <p style="color: #64748b; font-size: 0.92rem; margin: 0;">Cuadrantes estratégicos por unidad de negocio.</p>
-            </div>
-          </div>
-
+        
           <!-- Summary Cards BCG -->
           <div class="bcg-resumen-cards-grid">
             <div class="resumen-card-premium">
@@ -829,13 +821,13 @@
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
           <div>
             <h1 style="font-size:1.8rem;font-weight:800;color:#0f172a;margin:0;letter-spacing:-0.02em;">5 Fuerzas de Porter</h1>
-            <p style="color:#64748b;font-size:0.92rem;margin:0.25rem 0 0 0;">Módulo M06 · Analisis del microentorno competitivo (1 = menor impacto, 5 = mayor impacto)</p>
+            <p style="color:#64748b;font-size:0.92rem;margin:0.25rem 0 0 0;">Evaluación de la intensidad competitiva del sector</p>
           </div>
-          <span class="m05-badge-progreso" id="m06EstadoBadge">No iniciado</span>
+          <span class="m05-badge-progreso" id="m06EstadoBadge">NO INICIADO</span>
         </div>
-        <div id="m06AlertBanner" class="m05-alert-banner" style="display:none;justify-content:space-between;align-items:center;"><span><i class="bi bi-info-circle-fill"></i> <span id="m06AlertText">Este planeamiento ya cuenta con un análisis Porter procesado.</span></span><button class="btn-actualizar-cadena" id="porterBackBtn" style="flex-shrink:0;font-size:0.8rem;padding:0.4rem 1rem;"><i class="bi bi-arrow-repeat"></i> Actualizar análisis</button></div>
+        <div id="m06AlertBanner" class="m05-alert-banner" style="display:none;justify-content:space-between;align-items:center;"><span><i class="bi bi-info-circle-fill"></i> <span id="m06AlertText">Este planeamiento ya cuenta con un análisis Porter completo.</span></span><button class="btn-actualizar-cadena" id="porterBackBtn" style="flex-shrink:0;font-size:0.8rem;padding:0.4rem 1rem;"><i class="bi bi-arrow-repeat"></i> Actualizar Porter</button></div>
         <div id="porterWizardContainer">
-          <div class="m01-tip-banner" id="m06TipBanner"><i class="bi bi-lightbulb-fill" style="color:#f59e0b;"></i><span id="m06TipText">Evalue el impacto de cada variable de la fuerza en el sector.</span></div>
+          
           <div class="wizard-stepper-container">
             <div class="wizard-stepper" id="porterStepper">
               <div class="stepper-progress-line" id="porterStepperProgressLine"></div>
@@ -856,15 +848,12 @@
             </div>
           </div>
           <div class="wizard-footer-nav">
-            <button id="porterCancelBtn" class="btn-secondary" style="display:none;">Cancelar</button>
+            <button id="porterCancelBtn" class="btn-secondary" style="display:none;"><i class="bi bi-x-lg"></i> Cancelar actualizaciones</button>
             <button id="porterPrevBtn" class="btn-secondary" disabled><i class="bi bi-arrow-left"></i> Anterior</button>
             <button id="porterNextBtn" class="btn-primary" disabled>Siguiente <i class="bi bi-arrow-right"></i></button>
           </div>
         </div>
         <div id="porterResultsContainer" class="resultados-finales-container" style="display:none;">
-          <div style="display:flex;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
-            <div><h2 style="font-size:1.6rem;font-weight:800;color:#0f172a;">Analisis Porter Completado</h2><p style="color:#64748b;font-size:0.92rem;">Intensidad competitiva y recomendaciones.</p></div>
-          </div>
           <div class="resumen-cards-grid">
             <div class="resumen-card-premium"><span class="card-label">Intensidad Competitiva</span><div class="clasificacion-total-premium" id="porterIntensidad">—</div><p class="card-subtext" id="porterIntensidadTxt">—</p></div>
             <div class="resumen-card-premium"><span class="card-label">Fuerza Dominante</span><div class="puntaje-total-premium" id="porterDominante">—</div><p class="card-subtext" id="porterDominanteTxt">—</p></div>
@@ -872,10 +861,72 @@
           </div>
           <div class="bloques-breakdown" id="porterBreakdown"></div>
           <div class="radar-box"><h3>Perfil del Entorno Competitivo</h3><div class="radar-canvas-container"><canvas id="porterRadarChart"></canvas></div></div>
-          <div class="trazabilidad-seccion"><div class="trazabilidad-seccion-header fortalezas"><h3>Oportunidades (Fuerzas de bajo impacto)</h3><span class="count-badge" id="porterCountOp">0</span></div><table class="foda-premium-table" id="porterTablaOp"><thead><tr><th>Fuerza</th><th>Variable</th><th style="text-align:center;">Puntaje</th></tr></thead><tbody></tbody></table></div>
-          <div class="trazabilidad-seccion"><div class="trazabilidad-seccion-header debilidades"><h3>Amenazas (Fuerzas de alto impacto)</h3><span class="count-badge" id="porterCountAm">0</span></div><table class="foda-premium-table" id="porterTablaAm"><thead><tr><th>Fuerza</th><th>Variable</th><th style="text-align:center;">Puntaje</th></tr></thead><tbody></tbody></table></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1.5rem;">
+            <div class="trazabilidad-seccion" style="margin-bottom:0;">
+              <div class="trazabilidad-seccion-header fortalezas" style="display:flex;align-items:center;justify-content:space-between;">
+                <h3 style="margin:0;"><i class="bi bi-sun-fill"></i> Oportunidades</h3>
+                <span class="count-badge" id="porterCountOp">0</span>
+              </div>
+              <table class="foda-premium-table" id="porterTablaOp">
+                <thead>
+                  <tr>
+                    <th style="width:40px;text-align:center;">#</th>
+                    <th>Enunciado</th>
+                    <th style="width:80px;text-align:center;">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div id="porterAddOp" style="display:flex;gap:6px;margin-top:8px;">
+                <input type="text" id="porterOpInput" placeholder="Nueva oportunidad..." style="flex:1;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85em;">
+                <button id="porterAddOpBtn" class="btn-small btn-primary" style="white-space:nowrap;"><i class="bi bi-plus-lg"></i> Agregar</button>
+              </div>
+            </div>
+            <div class="trazabilidad-seccion" style="margin-bottom:0;">
+              <div class="trazabilidad-seccion-header debilidades" style="display:flex;align-items:center;justify-content:space-between;">
+                <h3 style="margin:0;"><i class="bi bi-exclamation-triangle-fill"></i> Amenazas</h3>
+                <span class="count-badge" id="porterCountAm">0</span>
+              </div>
+              <table class="foda-premium-table" id="porterTablaAm">
+                <thead>
+                  <tr>
+                    <th style="width:40px;text-align:center;">#</th>
+                    <th>Enunciado</th>
+                    <th style="width:80px;text-align:center;">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div id="porterAddAm" style="display:flex;gap:6px;margin-top:8px;">
+                <input type="text" id="porterAmInput" placeholder="Nueva amenaza..." style="flex:1;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85em;">
+                <button id="porterAddAmBtn" class="btn-small btn-danger" style="white-space:nowrap;"><i class="bi bi-plus-lg"></i> Agregar</button>
+              </div>
+            </div>
+          </div>
+          <div id="porterUpdateActions" style="display:none;justify-content:center;gap:1rem;margin-top:1.5rem;padding-top:1.5rem;border-top:2px solid #e2e8f0;">
+            <button id="porterGuardarActualizacionesBtn" class="btn-primary" style="background:#2563eb;color:white;padding:0.7rem 2rem;font-weight:700;font-size:0.95rem;"><i class="bi bi-check-lg"></i> Guardar actualizaciones</button>
+            <button id="porterCancelarActualizacionesBtn" class="btn-secondary" style="padding:0.7rem 2rem;font-weight:600;font-size:0.95rem;"><i class="bi bi-x-lg"></i> Cancelar actualizaciones</button>
+          </div>
         </div>
       </div>
+
+      <!-- MODAL CONFIRMAR CANCELAR ACTUALIZACIONES PORTER -->
+      <div id="porterCancelConfirmModal" class="m01-modal" style="display:none;">
+        <div class="m01-modal-content">
+          <div class="m01-modal-header" style="border-bottom-color:#f1f5f9;">
+            <h3 style="color:#92400e;display:flex;align-items:center;gap:0.5rem;margin:0;font-size:1.1rem;"><i class="bi bi-exclamation-triangle-fill" style="color:#d97706;"></i> ¿Cancelar actualizaciones?</h3>
+            <button type="button" class="m01-modal-close" onclick="document.getElementById('porterCancelConfirmModal').style.display='none'"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <div class="m01-modal-body" style="padding:1.5rem;">
+            <p style="color:#475569;line-height:1.6;margin:0;font-size:0.92rem;">¿Está seguro de cancelar las actualizaciones? Los cambios no guardados se perderán.</p>
+          </div>
+          <div class="m01-modal-footer">
+            <button type="button" class="btn-secondary" onclick="document.getElementById('porterCancelConfirmModal').style.display='none'">Seguir editando</button>
+            <button type="button" class="btn-primary" id="porterCancelConfirmBtn" style="background-color:#dc2626;border-color:#dc2626;color:white;">Sí, cancelar</button>
+          </div>
+        </div>
+      </div>
+
       <!-- MÓDULO M07: ANÁLISIS PEST -->
       <div id="m07" class="section-content">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">

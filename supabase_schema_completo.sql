@@ -420,6 +420,21 @@ CREATE TABLE IF NOT EXISTS pest_resultados (
 );
 
 -- ============================================================================
+-- 27b. TABLA: porter_oa (M06 - Oportunidades y Amenazas editables)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS porter_oa (
+  id SERIAL PRIMARY KEY,
+  plan_id INT NOT NULL REFERENCES planes(id) ON DELETE CASCADE,
+  tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('oportunidad', 'amenaza')),
+  descripcion TEXT NOT NULL,
+  orden INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_porter_oa_plan ON porter_oa(plan_id);
+
+-- ============================================================================
 -- 28. FUNCIÓN: limpiar_auditoria (elimina registros mayores a 30 días)
 -- ============================================================================
 CREATE OR REPLACE FUNCTION limpiar_auditoria()

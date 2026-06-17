@@ -1005,8 +1005,8 @@
 }
 
 .puntaje-total-premium {
-  font-size: 3rem;
-  font-weight: 800;
+  font-size: 1.5rem;
+  font-weight: 700;
   background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
   background-clip: text;
   -webkit-background-clip: text;
@@ -1028,7 +1028,7 @@
 
 .clasificacion-total-premium {
   font-size: 1.5rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1;
   animation: countUp 0.6s ease-out;
 }
@@ -3216,3 +3216,7 @@
 .dafo-winner-box { background:#f0f6ff; border:2px solid #2563eb; border-radius:0.75rem; padding:1.25rem; text-align:center; font-size:1rem; line-height:1.6; margin-top:1rem; }
 .dafo-winner-box strong { font-size:1.15rem; }
 @media (max-width:768px) { .dafo-grid { grid-template-columns:1fr; } }
+
+/* ==================== PORTER OA — OPORTUNIDADES Y AMENAZAS ==================== */
+#m06 .trazabilidad-seccion-header h3 i { font-size:1rem; }
+.porter-edit-input:focus { outline:none; border-color:#2563eb !important; box-shadow:0 0 0 3px rgba(37,99,235,0.1) !important; }
