@@ -276,9 +276,9 @@ function renderEmpresa(data) {
   if (infoSector) infoSector.innerText = data.sector || '—';
 }
 
-// ==================== M01: MISIÓN, VISIÓN, VALORES ====================
+// ==================== M01-M03: MISIÓN, VISIÓN, VALORES ====================
 async function cargarM01() {
-  console.log('Cargando M01 (Misión, Visión, Valores) desde tabla global...');
+  console.log('Cargando M01-M03 (Misión, Visión, Valores) desde tabla global...');
 
   let data;
   try {
@@ -3674,36 +3674,31 @@ async function verificarPlanCompleto() {
   if (!isEditable) { btn.disabled = true; btn.title = 'El plan debe estar en borrador o rechazado para solicitar aprobación.'; return; }
 
   // Ejecutar todas las verificaciones en paralelo
-  const [m01Res, contenidosRes, countObjRes, countKpiRes, countIniciativasRes, bcgRes] = await Promise.all([
+  const [m01Res, contenidosRes, countObjRes, bcgRes] = await Promise.all([
     supabaseClient.from('empresa_contenido').select('mision, vision, valores').eq('id', 1).single(),
     supabaseClient.from('plan_contenido').select('modulo_id, completado').eq('plan_id', currentPlanId),
     supabaseClient.from('objetivos_generales').select('id', { count: 'exact', head: true }).eq('plan_id', currentPlanId),
-    supabaseClient.from('kpis').select('id', { count: 'exact', head: true }).eq('plan_id', currentPlanId),
-    supabaseClient.from('iniciativas').select('id', { count: 'exact', head: true }).eq('plan_id', currentPlanId),
     supabaseClient.from('matriz_bcg').select('estado').eq('plan_id', currentPlanId).maybeSingle()
   ]);
 
   const pendientes = [];
 
   const m01 = m01Res.data;
-  if (!m01 || !m01.mision) pendientes.push('Misión corporativa');
-  if (!m01 || !m01.vision) pendientes.push('Visión corporativa');
-  if (!m01 || !Array.isArray(m01.valores) || m01.valores.length === 0) pendientes.push('Valores corporativos');
+  if (!m01 || !m01.mision) pendientes.push('Módulo 01: Misión');
+  if (!m01 || !m01.vision) pendientes.push('Módulo 02: Visión');
+  if (!m01 || !Array.isArray(m01.valores) || m01.valores.length === 0) pendientes.push('Módulo 03: Valores corporativos');
 
-  const modulosRequeridos = ['M04', 'M06', 'M07', 'M08', 'M09'];
   const completadosMap = {};
   (contenidosRes.data || []).forEach(c => { completadosMap[c.modulo_id] = c.completado; });
-  const modulosLabels = { M04:'Cadena de valor', M06:'5 Fuerzas de Porter', M07:'Análisis PEST', M08:'Matriz FODA', M09:'Matriz CAME' };
-  for (const mod of modulosRequeridos) {
-    if (!completadosMap[mod]) pendientes.push(modulosLabels[mod] || mod);
-  }
 
-  const m05Ok = !!completadosMap['M05'] || bcgRes.data?.estado === 'procesado';
-  if (!m05Ok) pendientes.push('Matriz BCG');
-
-  if (!countObjRes.count || countObjRes.count === 0) pendientes.push('Objetivos generales');
-  if (!countKpiRes.count || countKpiRes.count === 0) pendientes.push('KPIs estratégicos');
-  if (!countIniciativasRes.count || countIniciativasRes.count === 0) pendientes.push('Iniciativas estratégicas');
+  if (!countObjRes.count || countObjRes.count === 0) pendientes.push('Módulo 04: Objetivos específicos y generales');
+  if (!completadosMap['M04']) pendientes.push('Módulo 05: Cadena de valor');
+  const m06Ok = !!completadosMap['M05'] || bcgRes.data?.estado === 'procesado';
+  if (!m06Ok) pendientes.push('Módulo 06: Matriz BCG');
+  if (!completadosMap['M06']) pendientes.push('Módulo 07: Porter');
+  if (!completadosMap['M07']) pendientes.push('Módulo 08: PEST');
+  if (!completadosMap['M08']) pendientes.push('Módulo 09: FODA');
+  if (!completadosMap['M09']) pendientes.push('Módulo 10: CAME');
 
   if (pendientes.length > 0) {
     btn.disabled = true;
@@ -3750,12 +3745,11 @@ async function verificarPlanesVencidos() {
 }
 
 async function cargarDashboard() {
-  const [planRes, contenidosRes, objetivosRes, kpisRes, iniciativasRes, bcgRes] = await Promise.all([
+  const [planRes, contenidosRes, objetivosRes, kpisRes, bcgRes] = await Promise.all([
     supabaseClient.from('planes').select('fecha_fin, estado, fecha_inicio').eq('id', currentPlanId).single(),
     supabaseClient.from('plan_contenido').select('modulo_id, completado').eq('plan_id', currentPlanId),
     supabaseClient.from('objetivos_generales').select('id').eq('plan_id', currentPlanId),
     supabaseClient.from('kpis').select('id').eq('plan_id', currentPlanId),
-    supabaseClient.from('iniciativas').select('id').eq('plan_id', currentPlanId),
     supabaseClient.from('matriz_bcg').select('estado').eq('plan_id', currentPlanId).maybeSingle()
   ]);
 
@@ -3803,17 +3797,19 @@ async function cargarDashboard() {
   const completadosMap = {};
   (contenidosRes.data || []).forEach(c => { completadosMap[c.modulo_id] = c.completado; });
 
-  const m03Ok = (objetivosRes.data || []).length > 0;
-  const m04Ok = !!completadosMap['M04'];
-  const m05Ok = !!completadosMap['M05'] || bcgRes.data?.estado === 'procesado';
-  const m06Ok = !!completadosMap['M06'];
-  const m07Ok = !!completadosMap['M07'];
-  const m08Ok = !!completadosMap['M08'];
-  const m09Ok = !!completadosMap['M09'];
-  const kpisOk = (kpisRes.data || []).length > 0;
-  const iniciativasOk = (iniciativasRes.data || []).length > 0;
+  // 10 módulos según la estructura del PETI
+  const m01Ok = !!(misionM01 || '').trim();
+  const m02Ok = !!(visionM01 || '').trim();
+  const m03Ok = Array.isArray(valoresM01) && valoresM01.length > 0;
+  const m04Ok = (objetivosRes.data || []).length > 0;
+  const m05Ok = !!completadosMap['M04'];
+  const m06Ok = !!completadosMap['M05'] || bcgRes.data?.estado === 'procesado';
+  const m07Ok = !!completadosMap['M06'];
+  const m08Ok = !!completadosMap['M07'];
+  const m09Ok = !!completadosMap['M08'];
+  const m10Ok = !!completadosMap['M09'];
 
-  const modulos = [m03Ok, m04Ok, m05Ok, m06Ok, m07Ok, m08Ok, m09Ok, kpisOk, iniciativasOk];
+  const modulos = [m01Ok, m02Ok, m03Ok, m04Ok, m05Ok, m06Ok, m07Ok, m08Ok, m09Ok, m10Ok];
   const completados = modulos.filter(Boolean).length;
 
   document.getElementById('modulosCompletados').innerText = completados;
