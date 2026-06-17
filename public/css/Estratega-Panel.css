@@ -3533,3 +3533,248 @@
     grid-column: 1;
   }
 }
+
+/* ==================== MÓDULO M09: MATRIZ CAME ==================== */
+
+.came-view-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.came-pareja-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: stretch;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.came-pareja-row:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+.came-pareja-cell {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.came-pareja-cell.debilidades {
+  border-left: 4px solid #991b1b;
+}
+
+.came-pareja-cell.amenazas {
+  border-left: 4px solid #f59e0b;
+}
+
+.came-pareja-cell.fortalezas {
+  border-left: 4px solid #065f46;
+}
+
+.came-pareja-cell.oportunidades {
+  border-left: 4px solid #1e40af;
+}
+
+.came-pareja-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  background: #f8fafc;
+  border-left: 1px solid #f1f5f9;
+  border-right: 1px solid #f1f5f9;
+  color: #94a3b8;
+  font-size: 1.1rem;
+}
+
+.came-pareja-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.came-pareja-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.came-pareja-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #94a3b8;
+  margin-bottom: 0.1rem;
+}
+
+.came-pareja-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.came-category-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.came-category-list li {
+  font-size: 0.85rem;
+  color: #334155;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f1f5f9;
+  line-height: 1.45;
+}
+
+.came-category-list li:last-child {
+  border-bottom: none;
+}
+
+.came-empty {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  font-style: italic;
+  padding: 0.5rem 0;
+}
+
+.came-step-content {
+  padding: 1.5rem 2rem;
+}
+
+.came-tables-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.came-table-wrapper {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.came-table-header {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.came-table-header-editable {
+  color: #2563eb;
+}
+
+.came-add-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.came-add-row input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+.came-add-row input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.came-empty-state-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  padding: 3rem 2rem;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.came-empty-state-card i {
+  font-size: 3rem;
+  color: #94a3b8;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.came-empty-state-card h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 0.5rem;
+}
+
+.came-empty-state-card p {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+/* Ajustes de tabla CAME */
+.came-table-wrapper .foda-premium-table {
+  box-shadow: none;
+  border: 1px solid #e2e8f0;
+}
+
+.came-table-wrapper .foda-premium-table th {
+  padding: 0.75rem 0.75rem;
+  font-size: 0.72rem;
+}
+
+.came-table-wrapper .foda-premium-table td {
+  padding: 0.75rem;
+}
+
+@media (max-width: 1024px) {
+  .came-tables-grid {
+    grid-template-columns: 1fr;
+  }
+  .came-pareja-row {
+    grid-template-columns: 1fr;
+  }
+  .came-pareja-divider {
+    width: 100%;
+    height: 40px;
+    border-left: none;
+    border-right: none;
+    border-top: 1px solid #f1f5f9;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .came-pareja-divider i {
+    transform: rotate(90deg);
+  }
+}
+
+@media (max-width: 768px) {
+  .came-step-content {
+    padding: 1rem;
+  }
+  .came-table-wrapper {
+    padding: 0.75rem;
+  }
+  .came-pareja-cell {
+    padding: 1rem;
+  }
+}

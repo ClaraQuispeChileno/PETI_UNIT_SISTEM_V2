@@ -79,6 +79,25 @@ const defaultBcgUens = [
 let bcgFodaItems = [];
 let bcgEditingId = null;
 
+// Estado de la Matriz CAME (M09)
+let cameItems = []; // { id, categoria, descripcion }
+let cameFodaItems = { // Factores agrupados por tipo, provenientes de las tablas de cada módulo
+  debilidad: [],
+  amenaza: [],
+  fortaleza: [],
+  oportunidad: []
+};
+let cameCurrentStep = 1; // 1=Debilidades, 2=Amenazas, 3=Fortalezas, 4=Oportunidades
+let cameModoActualizacion = false;
+let cameCompletadoPreviamente = false;
+let cameEditingId = null;
+const cameStepConfig = [
+  { step: 1, fodaTipo: 'debilidad', cameCategoria: 'corregir', titulo: 'PASO 1: CORREGIR LAS DEBILIDADES', fodaHeader: 'Debilidades registradas', cameHeader: 'Corregir las debilidades', icono: 'bi-tools', color: 'debilidades' },
+  { step: 2, fodaTipo: 'amenaza', cameCategoria: 'afrontar', titulo: 'PASO 2: AFRONTAR LAS AMENAZAS', fodaHeader: 'Amenazas registradas', cameHeader: 'Afrontar las amenazas', icono: 'bi-shield-fill-exclamation', color: 'amenazas' },
+  { step: 3, fodaTipo: 'fortaleza', cameCategoria: 'mantener', titulo: 'PASO 3: MANTENER LAS FORTALEZAS', fodaHeader: 'Fortalezas registradas', cameHeader: 'Mantener las fortalezas', icono: 'bi-shield-fill-check', color: 'fortalezas' },
+  { step: 4, fodaTipo: 'oportunidad', cameCategoria: 'explotar', titulo: 'PASO 4: EXPLORAR LAS OPORTUNIDADES', fodaHeader: 'Oportunidades registradas', cameHeader: 'Explorar las oportunidades', icono: 'bi-lightbulb-fill', color: 'oportunidades' }
+];
+
 
 
 // ==================== INICIALIZACIÓN ====================
@@ -217,7 +236,7 @@ async function cargarDatosPlan() {
     cargarModulosJSON('m06', 'M06'),
     cargarModulosJSON('m07', 'M07'),
     cargarModulosJSON('m08', 'M08'),
-    cargarModulosJSON('m09', 'M09'),
+    cargarCAME(),
     cargarEstadoPlan(),
     verificarPlanesVencidos()
   ]);
@@ -3126,6 +3145,498 @@ async function autoGenerarBcgFoda() {
   }
 }
 
+// ==================== MÓDULO M09: MATRIZ CAME ====================
+
+async function cargarCAME() {
+  if (!currentPlanId) return;
+  console.log('[M09] Cargando Matriz CAME para plan_id:', currentPlanId);
+
+  cameItems = [];
+  cameFodaItems = { debilidad: [], amenaza: [], fortaleza: [], oportunidad: [] };
+  cameCurrentStep = 1;
+  cameModoActualizacion = false;
+  cameCompletadoPreviamente = false;
+  cameEditingId = null;
+
+  try {
+    const { data: cameData, error: cameError } = await supabaseClient
+      .from('came')
+      .select('*')
+      .eq('plan_id', currentPlanId)
+      .order('orden', { ascending: true });
+    if (!cameError && cameData) {
+      cameItems = cameData;
+      cameCompletadoPreviamente = cameData.length > 0;
+    }
+  } catch (err) {
+    console.error('[M09] Error al cargar came:', err);
+  }
+
+  // Cargar factores SOLO de las tablas específicas de cada módulo
+  try {
+    const [cadenaRes, bcgRes, porterRes, pestRes] = await Promise.all([
+      supabaseClient.from('cadena_valor_foda').select('*').eq('plan_id', currentPlanId).order('id'),
+      supabaseClient.from('bcg_foda').select('*').eq('plan_id', currentPlanId).not('generado_auto', 'eq', true).order('id'),
+      supabaseClient.from('porter_oa').select('*').eq('plan_id', currentPlanId).order('id'),
+      supabaseClient.from('pest_oa').select('*').eq('plan_id', currentPlanId).order('id')
+    ]);
+
+    function valid(item) { return item && item.tipo && item.descripcion; }
+    function descExists(arr, desc) { return arr.some(function(x) { return x.descripcion === desc; }); }
+
+    // Fortalezas / Debilidades desde Cadena de Valor (M04)
+    (cadenaRes.data || []).filter(valid).forEach(function(item) {
+      if (item.tipo !== 'fortaleza' && item.tipo !== 'debilidad') return;
+      const target = item.tipo === 'fortaleza' ? cameFodaItems.fortaleza : cameFodaItems.debilidad;
+      if (descExists(target, item.descripcion)) return;
+      target.push({ id: 'cad_valor_' + item.id, tipo: item.tipo, descripcion: item.descripcion, origen: 'cadena_valor_foda' });
+    });
+
+    // Fortalezas / Debilidades desde BCG (M05)
+    (bcgRes.data || []).filter(valid).forEach(function(item) {
+      if (item.tipo !== 'fortaleza' && item.tipo !== 'debilidad') return;
+      const target = item.tipo === 'fortaleza' ? cameFodaItems.fortaleza : cameFodaItems.debilidad;
+      if (descExists(target, item.descripcion)) return;
+      target.push({ id: 'bcg_foda_' + item.id, tipo: item.tipo, descripcion: item.descripcion, origen: 'bcg_foda' });
+    });
+
+    // Oportunidades / Amenazas desde Porter (M06)
+    (porterRes.data || []).filter(valid).forEach(function(item) {
+      if (item.tipo !== 'oportunidad' && item.tipo !== 'amenaza') return;
+      const target = item.tipo === 'oportunidad' ? cameFodaItems.oportunidad : cameFodaItems.amenaza;
+      if (descExists(target, item.descripcion)) return;
+      target.push({ id: 'porter_oa_' + item.id, tipo: item.tipo, descripcion: item.descripcion, origen: 'porter_oa' });
+    });
+
+    // Oportunidades / Amenazas desde PEST (M07)
+    (pestRes.data || []).filter(valid).forEach(function(item) {
+      if (item.tipo !== 'oportunidad' && item.tipo !== 'amenaza') return;
+      const target = item.tipo === 'oportunidad' ? cameFodaItems.oportunidad : cameFodaItems.amenaza;
+      if (descExists(target, item.descripcion)) return;
+      target.push({ id: 'pest_oa_' + item.id, tipo: item.tipo, descripcion: item.descripcion, origen: 'pest_oa' });
+    });
+  } catch (err) {
+    console.error('[M09] Error al cargar factores DAFO por módulo:', err);
+  }
+
+  renderCameUI();
+}
+
+function renderCameUI() {
+  const badge = document.getElementById('m09EstadoBadge');
+  const alertBanner = document.getElementById('m09AlertBanner');
+  const alertText = document.getElementById('m09AlertText');
+  const actualizarBtn = document.getElementById('cameActualizarBtn');
+  const iniciarBtn = document.getElementById('cameIniciarBtn');
+  const viewContainer = document.getElementById('cameViewContainer');
+  const wizardContainer = document.getElementById('cameWizardContainer');
+  const emptyState = document.getElementById('cameEmptyState');
+
+  if (badge) {
+    if (cameModoActualizacion) {
+      badge.textContent = 'ACTUALIZANDO';
+      badge.className = 'm05-badge-progreso actualizando';
+    } else if (cameCompletadoPreviamente) {
+      badge.textContent = 'COMPLETO';
+      badge.className = 'm05-badge-progreso completado';
+    } else {
+      badge.textContent = 'NO INICIADO';
+      badge.className = 'm05-badge-progreso no-iniciado';
+    }
+  }
+
+  if (cameModoActualizacion) {
+    if (alertBanner) {
+      alertBanner.style.display = 'flex';
+      alertBanner.style.justifyContent = 'center';
+    }
+    if (alertText) alertText.textContent = 'Este planeamiento se está actualizando, no olvide guardar el registro.';
+    if (actualizarBtn) actualizarBtn.style.display = 'none';
+    if (iniciarBtn) iniciarBtn.style.display = 'none';
+    if (emptyState) emptyState.style.display = 'none';
+    if (viewContainer) viewContainer.style.display = 'none';
+    if (wizardContainer) wizardContainer.style.display = 'block';
+    renderCameWizard();
+  } else {
+    if (alertBanner) {
+      if (cameCompletadoPreviamente) {
+        alertBanner.style.display = 'flex';
+        alertBanner.style.justifyContent = 'space-between';
+      } else {
+        alertBanner.style.display = 'none';
+      }
+    }
+    if (alertText) alertText.textContent = 'Este planeamiento ya cuenta con una Matriz CAME registrada.';
+    if (viewContainer) viewContainer.style.display = 'none';
+
+    if (cameCompletadoPreviamente) {
+      if (wizardContainer) wizardContainer.style.display = 'none';
+      if (emptyState) emptyState.style.display = 'none';
+      if (viewContainer) viewContainer.style.display = 'block';
+      if (actualizarBtn) {
+        actualizarBtn.style.display = '';
+        actualizarBtn.disabled = !isEditable;
+      }
+      if (iniciarBtn) iniciarBtn.style.display = 'none';
+      renderCameView();
+    } else {
+      // Sin datos CAME: mostrar wizard directamente si es editable, sino empty state de solo lectura
+      if (isEditable) {
+        if (alertBanner) alertBanner.style.display = 'none';
+        if (viewContainer) viewContainer.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'none';
+        if (wizardContainer) wizardContainer.style.display = 'block';
+        if (actualizarBtn) actualizarBtn.style.display = 'none';
+        if (iniciarBtn) iniciarBtn.style.display = 'none';
+        renderCameWizard();
+      } else {
+        if (wizardContainer) wizardContainer.style.display = 'none';
+        if (viewContainer) viewContainer.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'block';
+        const emptyText = document.getElementById('cameEmptyStateText');
+        if (emptyText) emptyText.textContent = 'Aún no se han registrado estrategias CAME para este plan y el plan no permite edición.';
+        if (iniciarBtn) {
+          iniciarBtn.style.display = '';
+          iniciarBtn.disabled = true;
+        }
+        if (actualizarBtn) actualizarBtn.style.display = 'none';
+      }
+    }
+  }
+}
+
+
+function renderCameView() {
+  const grid = document.getElementById('cameViewGrid');
+  if (!grid) return;
+
+  const parejas = [
+    {
+      foda: { tipo: 'debilidad', titulo: 'Debilidades', icono: 'bi-exclamation-triangle-fill', color: '#991b1b' },
+      came: { categoria: 'corregir', titulo: 'Corregir debilidades', icono: 'bi-tools', color: '#991b1b' }
+    },
+    {
+      foda: { tipo: 'amenaza', titulo: 'Amenazas', icono: 'bi-shield-fill-exclamation', color: '#f59e0b' },
+      came: { categoria: 'afrontar', titulo: 'Afrontar amenazas', icono: 'bi-shield-fill-exclamation', color: '#f59e0b' }
+    },
+    {
+      foda: { tipo: 'fortaleza', titulo: 'Fortalezas', icono: 'bi-shield-fill-check', color: '#065f46' },
+      came: { categoria: 'mantener', titulo: 'Mantener fortalezas', icono: 'bi-shield-fill-check', color: '#065f46' }
+    },
+    {
+      foda: { tipo: 'oportunidad', titulo: 'Oportunidades', icono: 'bi-lightbulb-fill', color: '#1e40af' },
+      came: { categoria: 'explotar', titulo: 'Explorar oportunidades', icono: 'bi-lightbulb-fill', color: '#1e40af' }
+    }
+  ];
+
+  grid.innerHTML = parejas.map((par, idx) => {
+    const fodaItems = cameFodaItems[par.foda.tipo] || [];
+    const cameItemsList = cameItems.filter(c => c.categoria === par.came.categoria);
+    const fodaClass = par.foda.tipo === 'debilidad' ? 'debilidades' : par.foda.tipo === 'amenaza' ? 'amenazas' : par.foda.tipo === 'fortaleza' ? 'fortalezas' : 'oportunidades';
+    const cameClass = par.came.categoria === 'corregir' ? 'corregir' : par.came.categoria === 'afrontar' ? 'afrontar' : par.came.categoria === 'mantener' ? 'mantener' : 'explotar';
+
+    return `
+      <div class="came-pareja-row">
+        <div class="came-pareja-cell came-pareja-foda ${fodaClass}">
+          <div class="came-pareja-header">
+            <div class="came-pareja-badge" style="background:${par.foda.color}15;color:${par.foda.color};border:1px solid ${par.foda.color}30;">
+              <i class="bi ${par.foda.icono}"></i>
+            </div>
+            <div>
+              <div class="came-pareja-label">Factor DAFO</div>
+              <div class="came-pareja-title" style="color:${par.foda.color};">${par.foda.titulo}</div>
+            </div>
+          </div>
+          ${fodaItems.length > 0
+            ? `<ul class="came-category-list">${fodaItems.map(i => `<li>${escapeHtml(i.descripcion)}</li>`).join('')}</ul>`
+            : `<div class="came-empty">No se registraron ${par.foda.titulo.toLowerCase()}</div>`}
+        </div>
+        <div class="came-pareja-divider"><i class="bi bi-arrow-right"></i></div>
+        <div class="came-pareja-cell came-pareja-came ${cameClass}">
+          <div class="came-pareja-header">
+            <div class="came-pareja-badge" style="background:${par.came.color}15;color:${par.came.color};border:1px solid ${par.came.color}30;">
+              <i class="bi ${par.came.icono}"></i>
+            </div>
+            <div>
+              <div class="came-pareja-label">Estrategia CAME</div>
+              <div class="came-pareja-title" style="color:${par.came.color};">${par.came.titulo}</div>
+            </div>
+          </div>
+          ${cameItemsList.length > 0
+            ? `<ul class="came-category-list">${cameItemsList.map(i => `<li>${escapeHtml(i.descripcion)}</li>`).join('')}</ul>`
+            : `<div class="came-empty">No se registraron estrategias</div>`}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderCameWizard() {
+  renderCameStepper();
+  renderCameStepContent();
+
+  const prevBtn = document.getElementById('camePrevBtn');
+  const nextBtn = document.getElementById('cameNextBtn');
+  const cancelBtn = document.getElementById('cameCancelBtn');
+
+  if (prevBtn) prevBtn.disabled = cameCurrentStep === 1;
+  if (nextBtn) {
+    // Mismo diseño en todos los pasos: botón "Siguiente" estilo btn-primary
+    nextBtn.innerHTML = 'Siguiente <i class="bi bi-arrow-right"></i>';
+    nextBtn.classList.remove('btn-primary-solid');
+    nextBtn.classList.add('btn-primary');
+  }
+  if (cancelBtn) cancelBtn.style.display = cameModoActualizacion ? '' : 'none';
+}
+
+function renderCameStepper() {
+  const steps = document.querySelectorAll('#cameStepper .stepper-step');
+  steps.forEach(stepEl => {
+    const step = parseInt(stepEl.getAttribute('data-step'));
+    stepEl.classList.remove('active', 'completed', 'locked');
+    if (step === cameCurrentStep) {
+      stepEl.classList.add('active');
+    } else if (step < cameCurrentStep) {
+      stepEl.classList.add('completed');
+    } else {
+      stepEl.classList.add('locked');
+    }
+  });
+
+  const progressLine = document.getElementById('cameStepperProgressLine');
+  if (progressLine) {
+    progressLine.style.width = Math.min(((cameCurrentStep - 1) / 3) * 100, 100) + '%';
+  }
+
+  const labelEl = document.getElementById('cameStepperCurrentLabel');
+  const cfg = cameStepConfig[cameCurrentStep - 1];
+  if (labelEl && cfg) {
+    labelEl.innerHTML = `<i class="bi bi-arrow-right-circle-fill"></i> Paso ${cfg.step} de 4: ${cfg.fodaHeader.replace(' registradas', '').replace(' registrados', '')}`;
+  }
+}
+
+function renderCameStepContent() {
+  const cfg = cameStepConfig[cameCurrentStep - 1];
+  if (!cfg) return;
+
+  const tituloEl = document.getElementById('cameBloqueTitulo');
+  const fodaHeader = document.getElementById('cameFodaTableHeader');
+  const cameHeader = document.getElementById('cameCameTableHeader');
+  const fodaContainer = document.getElementById('cameFodaTableContainer');
+  const cameContainer = document.getElementById('cameCameTableContainer');
+  const countEl = document.getElementById('cameItemsCount');
+  const nextBtn = document.getElementById('cameNextBtn');
+
+  if (tituloEl) tituloEl.textContent = cfg.titulo;
+  if (fodaHeader) {
+    const iconoMap = {
+      debilidad: 'bi-exclamation-triangle-fill',
+      amenaza: 'bi-shield-fill-exclamation',
+      fortaleza: 'bi-shield-fill-check',
+      oportunidad: 'bi-lightbulb-fill'
+    };
+    fodaHeader.innerHTML = `<i class="bi ${iconoMap[cfg.fodaTipo]}"></i> ${cfg.fodaHeader}`;
+  }
+  if (cameHeader) cameHeader.innerHTML = `<i class="bi ${cfg.icono}"></i> ${cfg.cameHeader}`;
+
+  if (fodaContainer) fodaContainer.innerHTML = renderCameFodaTable(cfg.fodaTipo);
+  if (cameContainer) cameContainer.innerHTML = renderCameEditableTable(cfg.cameCategoria);
+
+  const itemsEnPaso = cameItems.filter(c => c.categoria === cfg.cameCategoria).length;
+  if (countEl) countEl.textContent = itemsEnPaso;
+  if (nextBtn) nextBtn.disabled = itemsEnPaso === 0;
+
+  const input = document.getElementById('cameNewItemInput');
+  if (input) input.value = '';
+}
+
+function renderCameFodaTable(tipo) {
+  const items = cameFodaItems[tipo] || [];
+  if (items.length === 0) {
+    return `<div class="empty-state-row" style="padding:2rem;text-align:center;color:#94a3b8;"><i class="bi bi-inbox" style="font-size:1.5rem;display:block;margin-bottom:0.5rem;"></i>No hay ${tipo === 'debilidad' ? 'debilidades' : tipo === 'amenaza' ? 'amenazas' : tipo === 'fortaleza' ? 'fortalezas' : 'oportunidades'} registradas.</div>`;
+  }
+  const rows = items.map((item, idx) => `
+    <tr>
+      <td style="width:40px;text-align:center;"><div class="pregunta-num-col" style="margin:0 auto;">${idx + 1}</div></td>
+      <td>${escapeHtml(item.descripcion)}</td>
+    </tr>
+  `).join('');
+  return `
+    <table class="foda-premium-table">
+      <thead><tr><th style="width:40px;text-align:center;">#</th><th>Enunciado</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function renderCameEditableTable(categoria) {
+  const items = cameItems.filter(c => c.categoria === categoria);
+  if (items.length === 0) {
+    return `<div class="empty-state-row" style="padding:2rem;text-align:center;color:#94a3b8;"><i class="bi bi-clipboard" style="font-size:1.5rem;display:block;margin-bottom:0.5rem;"></i>Aún no hay estrategias registradas.</div>`;
+  }
+  const rows = items.map((item, idx) => {
+    const isEditing = String(cameEditingId) === String(item.id);
+    let descHtml, actionsHtml;
+    if (isEditing) {
+      descHtml = `<input type="text" class="came-edit-input" value="${escapeHtml(item.descripcion)}" style="width:100%;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9em;">`;
+      actionsHtml = `<button class="btn-small btn-success came-save-btn" data-id="${item.id}" title="Guardar"><i class="bi bi-check-lg"></i></button><button class="btn-small btn-secondary came-cancel-btn" data-id="${item.id}" title="Cancelar"><i class="bi bi-x-lg"></i></button>`;
+    } else {
+      descHtml = `<div style="font-weight:600;color:#1e293b;line-height:1.5;">${escapeHtml(item.descripcion)}</div>`;
+      actionsHtml = `<button class="btn-small btn-secondary came-edit-btn" data-id="${item.id}" title="Editar"><i class="bi bi-pencil"></i></button><button class="btn-small btn-danger came-delete-btn" data-id="${item.id}" title="Eliminar"><i class="bi bi-trash"></i></button>`;
+    }
+    return `
+      <tr data-came-id="${item.id}">
+        <td style="width:40px;text-align:center;"><div class="pregunta-num-col" style="margin:0 auto;">${idx + 1}</div></td>
+        <td>${descHtml}</td>
+        <td style="width:80px;text-align:center;white-space:nowrap;">${actionsHtml}</td>
+      </tr>
+    `;
+  }).join('');
+  return `
+    <table class="foda-premium-table">
+      <thead><tr><th style="width:40px;text-align:center;">#</th><th>Estrategia</th><th style="width:80px;text-align:center;">Acciones</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function agregarCameItem() {
+  const input = document.getElementById('cameNewItemInput');
+  const cfg = cameStepConfig[cameCurrentStep - 1];
+  if (!input || !cfg) return;
+  const desc = input.value.trim();
+  if (!desc) {
+    showToast('Ingrese una descripción para la estrategia.', 'error');
+    return;
+  }
+  const maxOrden = cameItems
+    .filter(c => c.categoria === cfg.cameCategoria)
+    .reduce((max, c) => Math.max(max, c.orden || 0), 0);
+  cameItems.push({
+    id: 'temp_' + Date.now(),
+    categoria: cfg.cameCategoria,
+    descripcion: desc,
+    orden: maxOrden + 1
+  });
+  input.value = '';
+  renderCameStepContent();
+}
+
+function iniciarActualizacionCAME() {
+  if (!isEditable) {
+    showToast('No se puede editar este plan en su estado actual.', 'error');
+    return;
+  }
+  cameModoActualizacion = true;
+  cameCurrentStep = 1;
+  cameEditingId = null;
+  renderCameUI();
+}
+
+function navegarCameAnterior() {
+  if (cameCurrentStep > 1) {
+    cameCurrentStep--;
+    cameEditingId = null;
+    renderCameWizard();
+  }
+}
+
+async function navegarCameSiguiente() {
+  if (cameCurrentStep < 4) {
+    cameCurrentStep++;
+    cameEditingId = null;
+    renderCameWizard();
+  } else {
+    await guardarCAME();
+  }
+}
+
+async function guardarCAME() {
+  if (!isEditable) {
+    showToast('No se puede guardar en un plan en revisión.', 'error');
+    return;
+  }
+
+  // Asignar orden final a todos los items
+  const categorias = ['corregir', 'afrontar', 'mantener', 'explotar'];
+  categorias.forEach(cat => {
+    let ord = 1;
+    cameItems.filter(c => c.categoria === cat).forEach(c => {
+      c.orden = ord++;
+    });
+  });
+
+  try {
+    // Guardar snapshot en auditoría si ya existía
+    if (cameCompletadoPreviamente) {
+      try {
+        await supabaseClient.from('auditoria').insert({
+          usuario_id: currentUser.id,
+          modulo: 'M09',
+          accion: 'HISTORIAL',
+          detalle: JSON.stringify({ plan_id: currentPlanId, fecha: new Date().toISOString(), contenido: cameItems.map(c => ({ categoria: c.categoria, descripcion: c.descripcion })) })
+        });
+      } catch (_) {}
+    }
+
+    // Eliminar registros anteriores e insertar nuevos
+    await supabaseClient.from('came').delete().eq('plan_id', currentPlanId);
+    if (cameItems.length > 0) {
+      const inserts = cameItems.map(c => ({
+        plan_id: currentPlanId,
+        categoria: c.categoria,
+        descripcion: c.descripcion,
+        orden: c.orden
+      }));
+      const { error: insErr } = await supabaseClient.from('came').insert(inserts);
+      if (insErr) throw insErr;
+    }
+
+    // Sincronizar con plan_contenido para dashboard
+    await supabaseClient.from('plan_contenido').upsert({
+      plan_id: currentPlanId,
+      modulo_id: 'M09',
+      contenido: {
+        categorias: {
+          corregir: cameItems.filter(c => c.categoria === 'corregir').map(c => c.descripcion),
+          afrontar: cameItems.filter(c => c.categoria === 'afrontar').map(c => c.descripcion),
+          mantener: cameItems.filter(c => c.categoria === 'mantener').map(c => c.descripcion),
+          explotar: cameItems.filter(c => c.categoria === 'explotar').map(c => c.descripcion)
+        }
+      },
+      completado: true,
+      completado_fecha: new Date()
+    }, { onConflict: 'plan_id, modulo_id' });
+
+    await supabaseClient.from('auditoria').insert({
+      usuario_id: currentUser.id,
+      modulo: 'M09',
+      accion: cameCompletadoPreviamente ? 'ACTUALIZAR' : 'CREAR',
+      detalle: `Se ${cameCompletadoPreviamente ? 'actualizó' : 'registró'} la Matriz CAME para el plan.`
+    });
+
+    cameModoActualizacion = false;
+    cameCompletadoPreviamente = true;
+    renderCameUI();
+
+    showToast('Datos actualizados correctamente.', 'success');
+
+    await cargarDashboard();
+  } catch (err) {
+    console.error('[M09] Error al guardar CAME:', err);
+    showToast('Error al guardar: ' + err.message, 'error');
+  }
+}
+
+async function cancelarActualizacionCAME() {
+  document.getElementById('cameCancelConfirmModal').style.display = 'none';
+  cameModoActualizacion = false;
+  cameCurrentStep = 1;
+  cameEditingId = null;
+  await cargarCAME();
+  showToast('Actualizaciones canceladas.', 'info');
+}
+
 // ==================== DASHBOARD ====================
 async function cargarEstadoPlanes() {
   if (!currentPlanId) return;
@@ -3956,6 +4467,86 @@ function setupEventListeners() {
     };
   }
 
+  // ==================== EVENTOS CAME (M09) ====================
+  const cameActualizarBtn = document.getElementById('cameActualizarBtn');
+  if (cameActualizarBtn) cameActualizarBtn.onclick = iniciarActualizacionCAME;
+
+  const cameIniciarBtn = document.getElementById('cameIniciarBtn');
+  if (cameIniciarBtn) cameIniciarBtn.onclick = iniciarActualizacionCAME;
+
+  const cameCancelBtn = document.getElementById('cameCancelBtn');
+  if (cameCancelBtn) cameCancelBtn.onclick = () => {
+    document.getElementById('cameCancelConfirmModal').style.display = 'flex';
+  };
+
+  const cameCancelConfirmBtn = document.getElementById('cameCancelConfirmBtn');
+  if (cameCancelConfirmBtn) cameCancelConfirmBtn.onclick = cancelarActualizacionCAME;
+
+  const cameCancelCloseBtn = document.getElementById('cameCancelCloseBtn');
+  if (cameCancelCloseBtn) cameCancelCloseBtn.onclick = () => {
+    document.getElementById('cameCancelConfirmModal').style.display = 'none';
+  };
+
+  const camePrevBtn = document.getElementById('camePrevBtn');
+  if (camePrevBtn) camePrevBtn.onclick = navegarCameAnterior;
+
+  const cameNextBtn = document.getElementById('cameNextBtn');
+  if (cameNextBtn) cameNextBtn.onclick = navegarCameSiguiente;
+
+  const cameAddItemBtn = document.getElementById('cameAddItemBtn');
+  if (cameAddItemBtn) cameAddItemBtn.onclick = agregarCameItem;
+
+  const cameNewItemInput = document.getElementById('cameNewItemInput');
+  if (cameNewItemInput) {
+    cameNewItemInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        agregarCameItem();
+      }
+    });
+  }
+
+  // Delegación de eventos CAME: editar, guardar, cancelar, eliminar
+  document.addEventListener('click', async (e) => {
+    const deleteBtn = e.target.closest('.came-delete-btn');
+    if (deleteBtn) {
+      const id = deleteBtn.getAttribute('data-id');
+      if (id && confirm('¿Eliminar esta estrategia?')) {
+        cameItems = cameItems.filter(c => String(c.id) !== id);
+        renderCameStepContent();
+      }
+      return;
+    }
+    const editBtn = e.target.closest('.came-edit-btn');
+    if (editBtn) {
+      cameEditingId = editBtn.getAttribute('data-id');
+      renderCameStepContent();
+      const input = document.querySelector(`tr[data-came-id="${cameEditingId}"] .came-edit-input`);
+      if (input) input.focus();
+      return;
+    }
+    const saveBtn = e.target.closest('.came-save-btn');
+    if (saveBtn) {
+      const id = saveBtn.getAttribute('data-id');
+      const input = document.querySelector(`tr[data-came-id="${id}"] .came-edit-input`);
+      if (input) {
+        const newDesc = input.value.trim();
+        if (newDesc) {
+          cameItems.forEach(c => { if (String(c.id) === id) c.descripcion = newDesc; });
+        }
+      }
+      cameEditingId = null;
+      renderCameStepContent();
+      return;
+    }
+    const cancelEditBtn = e.target.closest('.came-cancel-btn');
+    if (cancelEditBtn) {
+      cameEditingId = null;
+      renderCameStepContent();
+      return;
+    }
+  });
+
   // Delegated input listeners for BCG wizard tables (live data sync + stepper/progress update)
   document.getElementById('m05WizardContainer').addEventListener('input', (e) => {
     const target = e.target;
@@ -4119,6 +4710,8 @@ function setupNavigation() {
         if (typeof window.cargarPest === 'function') window.cargarPest();
       } else if (sectionId === 'm08') {
         if (typeof window.cargarDafo === 'function') window.cargarDafo();
+      } else if (sectionId === 'm09') {
+        await cargarCAME();
       } else if (sectionId === 'notificaciones') {
         await cargarNotificacionesEstratega();
       }
