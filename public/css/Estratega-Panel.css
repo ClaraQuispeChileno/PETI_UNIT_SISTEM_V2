@@ -2439,7 +2439,7 @@
 
 .bcg-dashboard-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 2rem;
   margin-bottom: 1.5rem;
 }
@@ -2469,7 +2469,7 @@
 
 .bcg-canvas-wrapper {
   position: relative;
-  height: 520px;
+  height: 400px;
   width: 100%;
 }
 
@@ -2701,6 +2701,15 @@
 /* --- BCG wizard block adjustments --- */
 #m05 .bloque-card-premium {
   margin-bottom: 1.5rem;
+}
+
+/* --- BCG FODA Tables (reuse foda-premium-table from M04) --- */
+#m05 .trazabilidad-seccion-header.fortalezas i {
+  color: #065f46;
+}
+
+#m05 .trazabilidad-seccion-header.debilidades i {
+  color: #991b1b;
 }
 
 #m05 .bloque-card-header h2 {

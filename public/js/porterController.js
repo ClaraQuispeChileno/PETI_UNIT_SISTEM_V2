@@ -271,7 +271,7 @@ function renderRadar(proms) {
 function mostrarResultadosUI() {
   completadoPreviamente = true;
   var badge = document.getElementById("m06EstadoBadge"); if (badge) { badge.innerText = "Procesado"; badge.className = "m05-badge-progreso procesado"; }
-  var ab = document.getElementById("m06AlertBanner"); if (ab) ab.style.display = "flex";
+  var ab = document.getElementById("m06AlertBanner"); if (ab) { ab.style.display = "flex"; ab.style.justifyContent = "space-between"; }
   var wc = document.getElementById("porterWizardContainer"); if (wc) wc.style.display = "none";
   var rc = document.getElementById("porterResultsContainer"); if (rc) rc.style.display = "block";
   mostrarResultados();

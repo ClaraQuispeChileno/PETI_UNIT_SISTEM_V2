@@ -134,7 +134,11 @@ function cargarDafo() {
 function renderCompleto() {
   var badge = document.getElementById("m08EstadoBadge");
   if (badge) { badge.innerText = completado ? "Procesado" : (Object.keys(scores).length ? "En edicion" : "No iniciado"); badge.className = "m05-badge-progreso" + (completado ? " procesado" : (Object.keys(scores).length ? " edicion" : "")); }
-  document.getElementById("dafoAlertBanner").style.display = completado ? "flex" : "none";
+  var dafoAB = document.getElementById("dafoAlertBanner");
+  if (dafoAB) {
+    dafoAB.style.display = completado ? "flex" : "none";
+    if (completado) dafoAB.style.justifyContent = "space-between";
+  }
   document.getElementById("dafoWizardContainer").style.display = completado ? "none" : "block";
   document.getElementById("dafoResultsContainer").style.display = completado ? "block" : "none";
 

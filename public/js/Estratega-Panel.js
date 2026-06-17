@@ -75,6 +75,10 @@ const defaultBcgUens = [
   "Outsourcing Contable"
 ];
 
+// Estado del FODA de Matriz BCG
+let bcgFodaItems = [];
+let bcgEditingId = null;
+
 
 
 // ==================== INICIALIZACIÓN ====================
@@ -1965,29 +1969,26 @@ async function cargarBCG() {
       bcgModoActualizacion = false;
       
       if (badge) {
-        badge.innerText = 'Procesado';
-        badge.className = 'm05-badge-progreso procesado';
-      }
-      if (alertBanner) {
-        alertBanner.style.display = 'flex';
-        alertBanner.className = 'm05-alert-banner';
-        if (alertText) {
-          alertText.innerHTML = `<i class=""></i> Este planeamiento ya cuenta con una Matriz BCG generada el <strong>${new Date(data.actualizado_en || data.creado_en).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong> por el Estratega: <strong>${data.bloqueado_por_nombre || 'Estratega'}</strong>.`;
-        }
+        badge.textContent = 'COMPLETO';
+        badge.className = 'm05-badge-progreso completado';
       }
       
-      // Results-first
+      if (alertBanner) {
+        alertBanner.style.display = 'flex';
+        alertBanner.style.justifyContent = 'space-between';
+      }
+      if (alertText) alertText.textContent = 'Este planeamiento ya cuenta con una Matriz BCG generada.';
+      
       await mostrarResultadosBCG();
       
       const backBtn = document.getElementById('btnBackToBCG');
       if (backBtn) backBtn.disabled = isLockedByOther;
     } else {
       bcgCompletadoPreviamente = false;
-      bcgModoActualizacion = false;
       
       if (badge) {
-        badge.innerText = 'En edición';
-        badge.className = 'm05-badge-progreso edicion';
+        badge.textContent = 'ACTUALIZANDO';
+        badge.className = 'm05-badge-progreso actualizando';
       }
       if (alertBanner) alertBanner.style.display = 'none';
       
@@ -2142,7 +2143,7 @@ window.cerrarBcgModal = (id) => {
 };
 
 async function iniciarRecalculoBCG() {
-  cerrarBcgModal('m05ConfirmModal');
+  bcgModoActualizacion = true;
   const exito = await adquirirBloqueoBCG();
   if (exito) {
     // Guardar backup y limpiar datos para empezar desde cero
@@ -2164,6 +2165,12 @@ async function iniciarRecalculoBCG() {
       alert('Error al iniciar recalculación: ' + error.message);
     } else {
       await cargarBCG();
+      var alertBanner = document.getElementById('m05AlertBanner');
+      var alertText = document.getElementById('m05AlertText');
+      var backBtn = document.getElementById('btnBackToBCG');
+      if (alertBanner) alertBanner.style.display = 'flex';
+      if (alertText) alertText.textContent = 'Ingrese los ingresos por ventas anuales de cada servicio de ContaPerú para determinar el peso de la UEN.';
+      if (backBtn) backBtn.style.display = 'none';
     }
   }
 }
@@ -2292,6 +2299,10 @@ function actualizarTabsBCG() {
 
 function recolectarDatosWizardBCG() {
   // Paso 1
+  document.querySelectorAll('.bcg-uen-nombre').forEach(input => {
+    const idx = parseInt(input.getAttribute('data-idx'));
+    bcgUensData[idx].nombre = input.value.trim();
+  });
   document.querySelectorAll('.bcg-ventas-empresa').forEach(input => {
     const idx = parseInt(input.getAttribute('data-idx'));
     bcgUensData[idx].ventas_empresa = parseFloat(input.value) || 0;
@@ -2380,7 +2391,15 @@ async function ejecutarMatrizBCG() {
   }
   
   const resultadosCalculados = BCGService.procesarMatriz(bcgUensData);
+  bcgUensData = resultadosCalculados;
   
+  if (bcgModoActualizacion) {
+    // En modo actualizacion: solo mostrar resultados sin guardar en DB
+    await mostrarResultadosBCG();
+    return;
+  }
+  
+  // Primer procesamiento: guardar en DB
   await guardarSnapshotHistorialBCG();
   
   const { error } = await supabaseClient
@@ -2420,6 +2439,9 @@ async function ejecutarMatrizBCG() {
   } catch (err) {
     console.error('Error al sincronizar plan_contenido/auditoria M05:', err);
   }
+  
+  // Auto-generar FODA de BCG a partir de cuadrantes
+  await autoGenerarBcgFoda();
   
   showToast('Matriz BCG procesada y generada correctamente.', 'success');
   await cargarDashboard();
@@ -2504,9 +2526,10 @@ function poblarTablasBCG() {
   if (tbody1) {
     tbody1.innerHTML = bcgUensData.map((uen, idx) => `
       <tr>
-        <td><strong>${uen.nombre}</strong></td>
+        <td><input type="text" class="bcg-uen-nombre" data-idx="${idx}" value="${escapeHtml(uen.nombre || '')}" placeholder="Nombre del servicio" style="width:100%;font-weight:600;"></td>
         <td><input type="number" min="0" step="any" class="bcg-ventas-empresa" data-idx="${idx}" value="${uen.ventas_empresa || ''}" placeholder="0.00"></td>
         <td style="text-align: center;"><span class="bcg-peso-porcentual" id="bcgPeso-${idx}">${((parseFloat(uen.peso_porcentual) || 0) * 100).toFixed(2)}%</span></td>
+        <td style="text-align: center;"><button class="btn-small btn-danger bcg-uen-delete-btn" data-idx="${idx}" title="Eliminar servicio"><i class="bi bi-trash"></i></button></td>
       </tr>
     `).join('');
   }
@@ -2544,14 +2567,15 @@ function renderBcgBlock() {
   document.querySelectorAll('.bcg-panel').forEach(p => p.classList.remove('active'));
   document.getElementById(`bcgPanel${currentBcgStep}`).classList.add('active');
 
-  const tipText = document.getElementById('m05TipText');
-  if (tipText) {
-    const tips = [
+  // Actualizar banner de alerta con texto según el paso actual
+  var alertText = document.getElementById('m05AlertText');
+  if (alertText) {
+    var tips = [
       'Ingrese los ingresos por ventas anuales de cada servicio de ContaPerú para determinar el peso de la UEN.',
       'Ingrese las ventas globales del mercado para determinar el crecimiento del mercado (Eje Y).',
       'Registre el nombre y las ventas del rival más fuerte de cada servicio para evaluar la cuota relativa (Eje X).'
     ];
-    tipText.innerText = tips[currentBcgStep - 1];
+    alertText.innerText = tips[currentBcgStep - 1];
   }
 
   const blockTitles = ['PORTAFOLIO Y VENTAS — PASO 1', 'CRECIMIENTO DE MERCADO — PASO 2', 'COMPETENCIA DIRECTA — PASO 3'];
@@ -2590,15 +2614,9 @@ function renderBcgBlock() {
   const stepComplete = bcgStepIsComplete(currentBcgStep);
   if (nextBtn) {
     nextBtn.disabled = !stepComplete;
-    if (currentBcgStep === 3 && stepComplete) {
-      nextBtn.innerHTML = 'Generar Matriz BCG <i class="bi bi-bar-chart-fill"></i>';
-      nextBtn.classList.remove('btn-primary');
-      nextBtn.classList.add('btn-primary-solid');
-    } else {
-      nextBtn.innerHTML = 'Siguiente bloque <i class="bi bi-arrow-right"></i>';
-      nextBtn.classList.remove('btn-primary-solid');
-      nextBtn.classList.add('btn-primary');
-    }
+    nextBtn.innerHTML = 'Siguiente bloque <i class="bi bi-arrow-right"></i>';
+    nextBtn.classList.remove('btn-primary-solid');
+    nextBtn.classList.add('btn-primary');
   }
 }
 
@@ -2703,12 +2721,24 @@ async function mostrarResultadosBCG() {
   document.getElementById('bcgResultCobertura').innerText = `${cobertura}%`;
   document.getElementById('bcgResultCoberturaTexto').innerText = `Participación del portafolio sobre el mercado total`;
 
-  // Button back
-  const backBtn = document.getElementById('btnBackToBCG');
-  if (backBtn) backBtn.style.display = '';
+  // Badge
+  var badge = document.getElementById('m05EstadoBadge');
+  if (badge) {
+    if (bcgModoActualizacion) {
+      badge.textContent = 'ACTUALIZANDO';
+      badge.className = 'm05-badge-progreso actualizando';
+    } else if (bcgCompletadoPreviamente) {
+      badge.textContent = 'COMPLETO';
+      badge.className = 'm05-badge-progreso completado';
+    } else {
+      badge.textContent = 'NO INICIADO';
+      badge.className = 'm05-badge-progreso no-iniciado';
+    }
+  }
 
   renderBCGChart();
   renderBCGConclusions();
+  await cargarBcgFoda();
 }
 
 function renderBCGConclusions() {
@@ -2831,8 +2861,18 @@ function renderBCGChart() {
   };
   
   const tcms = bcgUensData.map(u => parseFloat(u.tcm) || 0);
-  const maxTcm = Math.max(...tcms);
-  const yMax = Math.max(20, Math.ceil((maxTcm + 5) / 5) * 5);
+  const maxTcm = Math.max(10, ...tcms);
+  const minTcm = Math.min(0, ...tcms);
+  const tcmPadding = Math.max(8, (maxTcm - minTcm) * 0.2);
+  const yMin = Math.floor(minTcm - tcmPadding);
+  const yMax = Math.max(20, Math.ceil(maxTcm + tcmPadding));
+
+  const prms = bcgUensData.map(u => parseFloat(u.prm) || 0);
+  const maxPrm = Math.max(1, ...prms);
+  const minPrm = Math.min(0, ...prms);
+  const prmPadding = Math.max(0.5, (maxPrm - minPrm) * 0.25);
+  const xMin = Math.max(-0.5, minPrm - prmPadding);
+  const xMax = Math.ceil((maxPrm + prmPadding) / 0.5) * 0.5;
   
   bcgChartInstance = new Chart(ctx, {
     type: 'bubble',
@@ -2845,8 +2885,8 @@ function renderBCGChart() {
       scales: {
         x: {
           type: 'linear',
-          min: -0.2,
-          suggestedMax: 2.5,
+          min: xMin,
+          max: xMax,
           reverse: true, // RESTRICCIÓN DE UX CRÍTICA: Eje X invertido
           title: {
             display: true,
@@ -2867,8 +2907,8 @@ function renderBCGChart() {
           }
         },
         y: {
-          min: -8,
-          max: yMax + 5,
+          min: yMin,
+          max: yMax,
           title: {
             display: true,
             text: 'Tasa de Crecimiento del Mercado (TCM %)',
@@ -2924,6 +2964,166 @@ function renderBCGChart() {
     },
     plugins: [bcgLinesPlugin]
   });
+}
+
+// ==================== BCG FODA: FORTALEZAS Y DEBILIDADES ====================
+
+async function cargarBcgFoda() {
+  console.log('[BCG FODA] Cargando fortalezas y debilidades...');
+  bcgFodaItems = [];
+  bcgEditingId = null;
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('bcg_foda')
+      .select('*')
+      .eq('plan_id', currentPlanId)
+      .order('id');
+    if (!error && data) {
+      bcgFodaItems = data;
+    }
+  } catch (err) {
+    console.error('[BCG FODA] Error al cargar:', err);
+  }
+
+  renderBcgFodaTables();
+
+  // Save section solo visible en modo actualización
+  const saveSection = document.getElementById('bcgSaveSection');
+  if (saveSection) { saveSection.style.display = bcgModoActualizacion ? 'flex' : 'none'; }
+}
+
+function renderBcgFodaTables() {
+  const tbodyFortalezas = document.querySelector('#bcgTablaFortalezas tbody');
+  const tbodyDebilidades = document.querySelector('#bcgTablaDebilidades tbody');
+  if (!tbodyFortalezas || !tbodyDebilidades) return;
+
+  tbodyFortalezas.innerHTML = '';
+  tbodyDebilidades.innerHTML = '';
+
+  const fortalezasList = [];
+  const debilidadesList = [];
+
+  let fortIdx = 0;
+  let debIdx = 0;
+
+  bcgFodaItems.forEach(item => {
+    if (item.tipo === 'fortaleza') { fortIdx++; } else { debIdx++; }
+    const num = item.tipo === 'fortaleza' ? fortIdx : debIdx;
+    const isEditing = (bcgEditingId === String(item.id));
+    let descHtml, actionsHtml;
+
+    if (isEditing) {
+      descHtml = '<input type="text" class="foda-edit-input" value="' + escapeHtml(item.descripcion) + '" style="width:100%;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9em;">';
+      actionsHtml = '<button class="btn-small btn-success bcg-foda-save-btn" data-id="' + item.id + '" title="Guardar"><i class="bi bi-check-lg"></i></button>'
+        + '<button class="btn-small btn-secondary bcg-foda-cancel-btn" data-id="' + item.id + '" title="Cancelar"><i class="bi bi-x-lg"></i></button>';
+    } else {
+      descHtml = '<div style="font-weight:600;color:#1e293b;line-height:1.5;" class="foda-descripcion">' + escapeHtml(item.descripcion) + '</div>';
+      actionsHtml = '<button class="btn-small btn-secondary bcg-foda-edit-btn" data-id="' + item.id + '" title="Editar"><i class="bi bi-pencil"></i></button>'
+        + '<button class="btn-small btn-danger bcg-foda-delete-btn" data-id="' + item.id + '" title="Eliminar"><i class="bi bi-trash"></i></button>';
+    }
+
+    const rowHtml = `
+      <tr data-bcg-foda-id="${item.id}">
+        <td style="text-align:center;"><div class="pregunta-num-col" style="margin:0 auto;">${num}</div></td>
+        <td>${descHtml}</td>
+        <td style="text-align:center;white-space:nowrap;">${actionsHtml}</td>
+      </tr>
+    `;
+
+    if (item.tipo === 'fortaleza') {
+      fortalezasList.push(rowHtml);
+    } else {
+      debilidadesList.push(rowHtml);
+    }
+  });
+
+  const countFortalezasEl = document.getElementById('bcgCountFortalezas');
+  const countDebilidadesEl = document.getElementById('bcgCountDebilidades');
+  if (countFortalezasEl) countFortalezasEl.innerText = fortalezasList.length;
+  if (countDebilidadesEl) countDebilidadesEl.innerText = debilidadesList.length;
+
+  tbodyFortalezas.innerHTML = fortalezasList.length > 0
+    ? fortalezasList.join('')
+    : '<tr class="empty-state-row"><td colspan="3"><i class="bi bi-shield-slash"></i><br>No se registraron fortalezas</td></tr>';
+
+  tbodyDebilidades.innerHTML = debilidadesList.length > 0
+    ? debilidadesList.join('')
+    : '<tr class="empty-state-row"><td colspan="3"><i class="bi bi-check-circle"></i><br>No se registraron debilidades</td></tr>';
+
+  const addFortDiv = document.getElementById('bcgAddFortaleza');
+  if (addFortDiv) {
+    addFortDiv.innerHTML = '<div class="foda-add-container" style="display:flex;gap:6px;margin-top:8px;">'
+      + '<input type="text" class="bcg-foda-add-input" placeholder="Nueva fortaleza..." style="flex:1;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85em;">'
+      + '<button class="btn-small btn-primary bcg-foda-add-btn" data-tipo="fortaleza" style="white-space:nowrap;"><i class="bi bi-plus-lg"></i> Agregar</button>'
+      + '</div>';
+  }
+  const addDebDiv = document.getElementById('bcgAddDebilidad');
+  if (addDebDiv) {
+    addDebDiv.innerHTML = '<div class="foda-add-container" style="display:flex;gap:6px;margin-top:8px;">'
+      + '<input type="text" class="bcg-foda-add-input" placeholder="Nueva debilidad..." style="flex:1;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85em;">'
+      + '<button class="btn-small btn-danger bcg-foda-add-btn" data-tipo="debilidad" style="white-space:nowrap;"><i class="bi bi-plus-lg"></i> Agregar</button>'
+      + '</div>';
+  }
+}
+
+async function guardarBcgFoda() {
+  try {
+    await supabaseClient.from('bcg_foda').delete().eq('plan_id', currentPlanId);
+    if (bcgFodaItems.length > 0) {
+      const inserts = bcgFodaItems.map(item => ({
+        plan_id: currentPlanId,
+        tipo: item.tipo,
+        descripcion: item.descripcion,
+        generado_auto: item.generado_auto || false
+      }));
+      const { error: insErr } = await supabaseClient.from('bcg_foda').insert(inserts);
+      if (insErr) throw insErr;
+    }
+    showToast('Fortalezas y debilidades guardadas correctamente.', 'success');
+  } catch (err) {
+    console.error('[BCG FODA] Error al guardar:', err);
+    showToast('Error al guardar: ' + err.message, 'error');
+  }
+}
+
+async function autoGenerarBcgFoda() {
+  // Solo auto-genera si no existen FODA items previos (para preservar ediciones manuales)
+  try {
+    const { data: existing } = await supabaseClient
+      .from('bcg_foda')
+      .select('id')
+      .eq('plan_id', currentPlanId);
+    if (existing && existing.length > 0) return;
+  } catch (_) {}
+
+  // Auto-genera FODA a partir de los cuadrantes de las UENs procesadas
+  const items = [];
+  bcgUensData.forEach(uen => {
+    if (uen.cuadrante === 'Estrella' || uen.cuadrante === 'Vaca') {
+      items.push({
+        tipo: 'fortaleza',
+        descripcion: `${uen.nombre} se encuentra en el cuadrante ${uen.cuadrante}, generando alta rentabilidad con ${uen.decision === 'MANTENER' ? 'baja inversión' : 'alta participación de mercado'}.`,
+        generado_auto: true
+      });
+    } else if (uen.cuadrante === 'Incógnita' || uen.cuadrante === 'Perro') {
+      items.push({
+        tipo: 'debilidad',
+        descripcion: `${uen.nombre} se ubica en el cuadrante ${uen.cuadrante}, requiriendo ${uen.cuadrante === 'Incógnita' ? 'alta inversión para crecer' : 'reestructuración o desinversión'}.`,
+        generado_auto: true
+      });
+    }
+  });
+
+  if (items.length > 0) {
+    try {
+      await supabaseClient.from('bcg_foda').insert(
+        items.map(item => ({ ...item, plan_id: currentPlanId }))
+      );
+    } catch (err) {
+      console.error('[BCG FODA] Error al auto-generar:', err);
+    }
+  }
 }
 
 // ==================== DASHBOARD ====================
@@ -3433,6 +3633,25 @@ function setupEventListeners() {
     };
   }
 
+  // Persistencia directa de BCG FODA a DB (solo en modo COMPLETO, no en actualización)
+  async function persistirBcgFodaInmediato() {
+    if (bcgModoActualizacion) return;
+    try {
+      await supabaseClient.from('bcg_foda').delete().eq('plan_id', currentPlanId);
+      if (bcgFodaItems.length > 0) {
+        var inserts = bcgFodaItems.map(function(item) {
+          return { plan_id: currentPlanId, tipo: item.tipo, descripcion: item.descripcion, generado_auto: item.generado_auto || false };
+        });
+        var { error: insErr } = await supabaseClient.from('bcg_foda').insert(inserts);
+        if (insErr) throw insErr;
+      }
+      await cargarBcgFoda();
+    } catch (err) {
+      console.error('[BCG FODA] Error al guardar:', err);
+      showToast('Error al guardar: ' + err.message, 'error');
+    }
+  }
+
   // Delegación de eventos FODA M04 (edición local en m04FodaItems)
   document.addEventListener('click', async (e) => {
     var deleteBtn = e.target.closest('.foda-delete-btn');
@@ -3489,6 +3708,68 @@ function setupEventListeners() {
       renderFodaTables();
       return;
     }
+
+    // BCG FODA: eliminar
+    var bcgDeleteBtn = e.target.closest('.bcg-foda-delete-btn');
+    if (bcgDeleteBtn) {
+      var id = bcgDeleteBtn.getAttribute('data-id');
+      if (id && confirm('¿Eliminar este elemento?')) {
+        bcgFodaItems = bcgFodaItems.filter(function(item) { return String(item.id) !== id; });
+        renderBcgFodaTables();
+        if (!bcgModoActualizacion) await persistirBcgFodaInmediato();
+      }
+      return;
+    }
+    // BCG FODA: editar
+    var bcgEditBtn = e.target.closest('.bcg-foda-edit-btn');
+    if (bcgEditBtn) {
+      bcgEditingId = bcgEditBtn.getAttribute('data-id');
+      renderBcgFodaTables();
+      var input = document.querySelector('tr[data-bcg-foda-id="' + bcgEditingId + '"] .foda-edit-input');
+      if (input) input.focus();
+      return;
+    }
+    // BCG FODA: guardar edición
+    var bcgSaveBtn = e.target.closest('.bcg-foda-save-btn');
+    if (bcgSaveBtn) {
+      var id = bcgSaveBtn.getAttribute('data-id');
+      var input = document.querySelector('tr[data-bcg-foda-id="' + id + '"] .foda-edit-input');
+      if (input) {
+        var newDesc = input.value.trim();
+        if (newDesc) {
+          bcgFodaItems.forEach(function(item) {
+            if (String(item.id) === id) item.descripcion = newDesc;
+          });
+        }
+      }
+      bcgEditingId = null;
+      renderBcgFodaTables();
+      if (!bcgModoActualizacion) await persistirBcgFodaInmediato();
+      return;
+    }
+    // BCG FODA: cancelar edición
+    var bcgCancelEditBtn = e.target.closest('.bcg-foda-cancel-btn');
+    if (bcgCancelEditBtn) {
+      bcgEditingId = null;
+      renderBcgFodaTables();
+      return;
+    }
+    // BCG FODA: agregar
+    var bcgAddBtn = e.target.closest('.bcg-foda-add-btn');
+    if (bcgAddBtn) {
+      var tipo = bcgAddBtn.getAttribute('data-tipo');
+      var container = bcgAddBtn.closest('.foda-add-container') || bcgAddBtn.parentElement;
+      var input = container.querySelector('.bcg-foda-add-input');
+      if (!input) return;
+      var desc = input.value.trim();
+      if (!desc) { showToast('Ingrese una descripción', 'error'); return; }
+      var tempId = 'bcg_temp_' + Date.now();
+      bcgFodaItems.push({ id: tempId, tipo: tipo, descripcion: desc });
+      input.value = '';
+      renderBcgFodaTables();
+      if (!bcgModoActualizacion) await persistirBcgFodaInmediato();
+      return;
+    }
   });
 
   // Guardar resultados M04 (persiste respuestas + FODA)
@@ -3536,15 +3817,7 @@ function setupEventListeners() {
   // Eventos BCG (M05)
   const btnBackToBCG = document.getElementById('btnBackToBCG');
   if (btnBackToBCG) {
-    btnBackToBCG.onclick = () => {
-      const modal = document.getElementById('m05ConfirmModal');
-      if (modal) modal.style.display = 'flex';
-    };
-  }
-
-  const bcgConfirmRecalcularBtn = document.getElementById('m05ConfirmRecalcularBtn');
-  if (bcgConfirmRecalcularBtn) {
-    bcgConfirmRecalcularBtn.onclick = async () => {
+    btnBackToBCG.onclick = async () => {
       await iniciarRecalculoBCG();
     };
   }
@@ -3589,6 +3862,9 @@ function setupEventListeners() {
         ]);
       }
       await cargarBCG();
+      var backBtn = document.getElementById('btnBackToBCG');
+      if (backBtn) backBtn.style.display = '';
+      showToast('Modificaciones canceladas.', 'info');
     };
   }
 
@@ -3599,12 +3875,86 @@ function setupEventListeners() {
     };
   }
 
+  // Guardar resultados BCG (persiste matriz BCG + FODA)
+  var guardarBcgBtn = document.getElementById('guardarResultadosBCGBtn');
+  if (guardarBcgBtn) {
+    guardarBcgBtn.onclick = async function() {
+      const { error } = await supabaseClient
+        .from('matriz_bcg')
+        .upsert({
+          plan_id: currentPlanId,
+          usuario_id: currentUser.id,
+          estado: 'procesado',
+          datos_uen: bcgUensData,
+          bloqueado_por: null,
+          bloqueado_por_nombre: null,
+          bloqueado_desde: null
+        }, { onConflict: 'plan_id' });
+      if (error) {
+        showToast('Error al guardar: ' + error.message, 'error');
+        return;
+      }
+      try {
+        await supabaseClient.from('plan_contenido').upsert({
+          plan_id: currentPlanId,
+          modulo_id: 'M05',
+          contenido: bcgUensData,
+          completado: true,
+          completado_fecha: new Date()
+        }, { onConflict: 'plan_id, modulo_id' });
+        await supabaseClient.from('auditoria').insert({
+          usuario_id: currentUser.id,
+          modulo: 'M05',
+          accion: 'ACTUALIZAR',
+          detalle: 'Se actualizó la Matriz BCG para el plan.'
+        });
+        await guardarHistorialBCG(bcgUensData, 'MATRIZ_BCG');
+      } catch (err) {
+        console.error('Error al sincronizar plan_contenido/auditoria M05:', err);
+      }
+      try {
+        await supabaseClient.from('bcg_foda').delete().eq('plan_id', currentPlanId);
+        if (bcgFodaItems.length > 0) {
+          const inserts = bcgFodaItems.map(item => ({
+            plan_id: currentPlanId,
+            tipo: item.tipo,
+            descripcion: item.descripcion,
+            generado_auto: item.generado_auto || false
+          }));
+          const { error: insErr } = await supabaseClient.from('bcg_foda').insert(inserts);
+          if (insErr) throw insErr;
+        }
+      } catch (err) {
+        console.error('[BCG FODA] Error al guardar:', err);
+        showToast('Error al guardar FODA: ' + err.message, 'error');
+        return;
+      }
+      await liberarBloqueoBCG();
+      showToast('Datos guardados exitosamente.', 'success');
+      bcgModoActualizacion = false;
+      await cargarBCG();
+      var backBtn = document.getElementById('btnBackToBCG');
+      if (backBtn) backBtn.style.display = '';
+    };
+  }
+
+  // Cancelar actualizaciones BCG
+  var cancelarBcgBtn = document.getElementById('cancelarActualizacionBCGBtn');
+  if (cancelarBcgBtn) {
+    cancelarBcgBtn.onclick = function() {
+      const modal = document.getElementById('bcgCancelConfirmModal');
+      if (modal) modal.style.display = 'flex';
+    };
+  }
+
   // Delegated input listeners for BCG wizard tables (live data sync + stepper/progress update)
   document.getElementById('m05WizardContainer').addEventListener('input', (e) => {
     const target = e.target;
     const idx = parseInt(target.getAttribute('data-idx'));
     if (!isNaN(idx) && bcgUensData[idx]) {
-      if (target.matches('.bcg-ventas-empresa')) {
+      if (target.matches('.bcg-uen-nombre')) {
+        bcgUensData[idx].nombre = target.value.trim();
+      } else if (target.matches('.bcg-ventas-empresa')) {
         calcularPesosBCG();
       } else if (target.matches('.bcg-mercado-anterior')) {
         bcgUensData[idx].ventas_mercado_anterior = parseFloat(target.value) || 0;
@@ -3624,15 +3974,9 @@ function setupEventListeners() {
     const stepComplete = bcgStepIsComplete(currentBcgStep);
     if (nextBtn) {
       nextBtn.disabled = !stepComplete;
-      if (currentBcgStep === 3 && stepComplete) {
-        nextBtn.innerHTML = 'Generar Matriz BCG <i class="bi bi-bar-chart-fill"></i>';
-        nextBtn.classList.remove('btn-primary');
-        nextBtn.classList.add('btn-primary-solid');
-      } else {
-        nextBtn.innerHTML = 'Siguiente bloque <i class="bi bi-arrow-right"></i>';
-        nextBtn.classList.remove('btn-primary-solid');
-        nextBtn.classList.add('btn-primary');
-      }
+      nextBtn.innerHTML = 'Siguiente bloque <i class="bi bi-arrow-right"></i>';
+      nextBtn.classList.remove('btn-primary-solid');
+      nextBtn.classList.add('btn-primary');
     }
     // Update progress bar
     let totalFields = 0, completedFields = 0;
@@ -3655,6 +3999,50 @@ function setupEventListeners() {
     const barLabel = document.getElementById('bcgBloqueBarLabel');
     if (barFill) barFill.style.width = totalFields > 0 ? `${(completedFields / totalFields) * 100}%` : '0%';
     if (barLabel) barLabel.innerText = `${completedFields}/${totalFields}`;
+  });
+
+  // Delegación de clics para agregar/eliminar servicios en paso 1 del wizard BCG
+  document.getElementById('m05WizardContainer').addEventListener('click', (e) => {
+    const deleteBtn = e.target.closest('.bcg-uen-delete-btn');
+    if (deleteBtn) {
+      const idx = parseInt(deleteBtn.getAttribute('data-idx'));
+      if (!isNaN(idx) && bcgUensData[idx]) {
+        if (bcgUensData.length <= 1) {
+          showToast('Debe existir al menos una UEN.', 'error');
+          return;
+        }
+        if (confirm(`¿Eliminar el servicio "${bcgUensData[idx].nombre || 'Sin nombre'}"?`)) {
+          recolectarDatosWizardBCG();
+          bcgUensData.splice(idx, 1);
+          renderBcgBlock();
+          renderBcgStepper();
+          const stepComplete = bcgStepIsComplete(currentBcgStep);
+          const nextBtn = document.getElementById('bcgNextBtn');
+          if (nextBtn) nextBtn.disabled = !stepComplete;
+        }
+      }
+      return;
+    }
+
+    const addBtn = e.target.closest('#bcgAddUenBtn');
+    if (addBtn) {
+      recolectarDatosWizardBCG();
+      bcgUensData.push({
+        nombre: `Nuevo servicio ${bcgUensData.length + 1}`,
+        ventas_empresa: '',
+        ventas_mercado_anterior: '',
+        ventas_mercado_actual: '',
+        nombre_competidor_lider: '',
+        ventas_competidor_lider: '',
+        peso_porcentual: 0
+      });
+      renderBcgBlock();
+      renderBcgStepper();
+      const stepComplete = bcgStepIsComplete(currentBcgStep);
+      const nextBtn = document.getElementById('bcgNextBtn');
+      if (nextBtn) nextBtn.disabled = !stepComplete;
+      return;
+    }
   });
 
   document.getElementById('agregarObjetivoGeneral').onclick = () => {

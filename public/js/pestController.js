@@ -339,7 +339,7 @@ function renderChart(promsNorm) {
 function mostrarResultadosUI() {
   completadoPreviamente = true;
   var badge = document.getElementById("m07EstadoBadge"); if (badge) { badge.innerText = "Procesado"; badge.className = "m05-badge-progreso procesado"; }
-  var ab = document.getElementById("pestAlertBanner"); if (ab) ab.style.display = "flex";
+  var ab = document.getElementById("pestAlertBanner"); if (ab) { ab.style.display = "flex"; ab.style.justifyContent = "space-between"; }
   var wc = document.getElementById("pestWizardContainer"); if (wc) wc.style.display = "none";
   var rc = document.getElementById("pestResultsContainer"); if (rc) rc.style.display = "block";
   var proms = {}; preguntasPest.forEach(function(f){proms[f.factor] = promedio(f.factor);});

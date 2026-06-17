@@ -538,23 +538,22 @@
         </div>
 
         <!-- BANNER DE ESTADO PROCESADO (Solo Lectura) -->
-        <div id="m05AlertBanner" class="m05-alert-banner" style="display: none;">
-          <i class="bi bi-info-circle-fill"></i>
-          <span id="m05AlertText">Este planeamiento ya cuenta con una Matriz BCG generada.</span>
+        <div id="m05AlertBanner" class="m05-alert-banner" style="display:none;justify-content:space-between;align-items:center;">
+          <span><i class="bi bi-info-circle-fill"></i> <span id="m05AlertText">Este planeamiento ya cuenta con una Matriz BCG generada.</span></span>
+          <button class="btn-actualizar-cadena" id="btnBackToBCG" style="flex-shrink:0;font-size:0.8rem;padding:0.4rem 1rem;">
+            <i class="bi bi-arrow-repeat"></i> Actualizar matriz BCG
+          </button>
         </div>
 
         <!-- CASO A: RESULTADOS Y VISUALIZACIÓN GRÁFICA -->
         <div id="m05ResultsContainer" style="display: none;">
-          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+          <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
             <div>
               <h2 style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin-bottom: 0.25rem; letter-spacing: -0.02em;">
                 <i class="bi bi-grid-3x3-gap-fill" style="color: #2563eb;"></i> Matriz BCG Generada
               </h2>
               <p style="color: #64748b; font-size: 0.92rem; margin: 0;">Cuadrantes estratégicos por unidad de negocio.</p>
             </div>
-            <button class="btn-actualizar-cadena" id="btnBackToBCG">
-              <i class="bi bi-arrow-repeat"></i> Actualizar matriz BCG
-            </button>
           </div>
 
           <!-- Summary Cards BCG -->
@@ -576,40 +575,79 @@
             </div>
           </div>
 
-          <div class="bcg-dashboard-grid">
-            <div class="bcg-chart-card">
-              <h3><i class="bi bi-grid-3x3-gap-fill"></i> Matriz de Burbujas BCG</h3>
-              <div class="bcg-canvas-wrapper">
-                <canvas id="bcgChart"></canvas>
-              </div>
+          <div class="bcg-chart-card" style="margin-bottom:1.5rem;">
+            <h3><i class="bi bi-grid-3x3-gap-fill"></i> Matriz de Burbujas BCG</h3>
+            <div class="bcg-canvas-wrapper">
+              <canvas id="bcgChart"></canvas>
             </div>
-            <div class="bcg-table-card">
-              <h3><i class="bi bi-lightbulb-fill"></i> Conclusiones y Decisiones Automatizadas</h3>
-              <div class="bcg-conclusions-wrapper">
-                <table class="bcg-summary-table" id="bcgSummaryTable">
-                  <thead>
-                    <tr>
-                      <th>Servicio UEN</th>
-                      <th>Cuadrante</th>
-                      <th>Estrategia</th>
-                      <th>Inversión</th>
-                      <th>Rentabilidad</th>
-                      <th>Decisión</th>
-                    </tr>
-                  </thead>
-                  <tbody></tbody>
-                </table>
-              </div>
+          </div>
+          <div class="bcg-table-card" style="margin-bottom:1.5rem;">
+            <h3><i class="bi bi-lightbulb-fill"></i> Conclusiones y Decisiones Automatizadas</h3>
+            <div class="bcg-conclusions-wrapper">
+              <table class="bcg-summary-table" id="bcgSummaryTable">
+                <thead>
+                  <tr>
+                    <th>Servicio UEN</th>
+                    <th>Cuadrante</th>
+                    <th>Estrategia</th>
+                    <th>Inversión</th>
+                    <th>Rentabilidad</th>
+                    <th>Decisión</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
             </div>
+          </div>
+
+          <!-- FORTALEZAS Y DEBILIDADES DE MATRIZ BCG -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1.5rem;">
+            <div class="trazabilidad-seccion" id="bcgSeccionFortalezas" style="margin-bottom:0;">
+              <div class="trazabilidad-seccion-header fortalezas">
+                <h3><i class="bi bi-shield-check-fill"></i> Fortalezas</h3>
+                <span class="count-badge" id="bcgCountFortalezas">0</span>
+              </div>
+              <table class="foda-premium-table" id="bcgTablaFortalezas">
+                <thead>
+                  <tr>
+                    <th style="width: 40px; text-align: center;">#</th>
+                    <th>Enunciado</th>
+                    <th style="width: 80px; text-align: center;">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div id="bcgAddFortaleza"></div>
+            </div>
+
+            <div class="trazabilidad-seccion" id="bcgSeccionDebilidades" style="margin-bottom:0;">
+              <div class="trazabilidad-seccion-header debilidades">
+                <h3><i class="bi bi-exclamation-triangle-fill"></i> Debilidades</h3>
+                <span class="count-badge" id="bcgCountDebilidades">0</span>
+              </div>
+              <table class="foda-premium-table" id="bcgTablaDebilidades">
+                <thead>
+                  <tr>
+                    <th style="width: 40px; text-align: center;">#</th>
+                    <th>Enunciado</th>
+                    <th style="width: 80px; text-align: center;">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div id="bcgAddDebilidad"></div>
+            </div>
+          </div>
+
+          <!-- SAVE SECTION BCG (visible solo en modo actualización) -->
+          <div id="bcgSaveSection" style="display:none;justify-content:center;gap:1rem;margin-top:1.5rem;padding-top:1.5rem;border-top:2px solid #e2e8f0;">
+            <button id="guardarResultadosBCGBtn" class="btn-primary" style="background:#2563eb;color:white;padding:0.7rem 2rem;font-weight:700;font-size:0.95rem;"><i class="bi bi-check-lg"></i> Guardar resultados</button>
+            <button id="cancelarActualizacionBCGBtn" class="btn-secondary" style="padding:0.7rem 2rem;font-weight:600;font-size:0.95rem;"><i class="bi bi-x-lg"></i> Cancelar actualizaciones</button>
           </div>
         </div>
 
         <!-- CASO B: ASISTENTE / WIZARD DE EDICIÓN -->
         <div id="m05WizardContainer">
-          <div class="m05-tip-banner" id="m05TipBanner">
-            <i class="bi bi-lightbulb-fill" style="color: #f59e0b;"></i>
-            <span id="m05TipText">Complete los datos financieros de cada paso para generar la Matriz BCG.</span>
-          </div>
 
           <!-- STEPPER BCG (3 pasos, estilo M04) -->
           <div class="wizard-stepper-container">
@@ -645,13 +683,13 @@
 
             <div class="bcg-tab-content">
               <div class="bcg-panel active" id="bcgPanel1">
-                <div class="bcg-panel-desc">Registre los ingresos por ventas anuales de ContaPerú correspondientes a cada Unidad Estratégica de Negocio (UEN). El peso porcentual se calculará dinámicamente.</div>
                 <table class="bcg-wizard-table" id="bcgTablePaso1">
                   <thead>
                     <tr>
                       <th>Unidad Estratégica de Negocio (UEN)</th>
-                      <th style="width: 300px;">Ventas Empresa ($)</th>
-                      <th style="width: 200px; text-align: center;">% S/ TOTAL</th>
+                      <th style="width: 240px;">Ventas Empresa ($)</th>
+                      <th style="width: 140px; text-align: center;">% S/ TOTAL</th>
+                      <th style="width: 80px; text-align: center;">Acciones</th>
                     </tr>
                   </thead>
                   <tbody></tbody>
@@ -660,13 +698,16 @@
                       <td><strong>VENTAS TOTALES</strong></td>
                       <td><span id="bcgTotalVentasEmpresa">$0.00</span></td>
                       <td style="text-align: center;"><strong id="bcgTotalPesoEmpresa">100.00%</strong></td>
+                      <td></td>
                     </tr>
                   </tfoot>
                 </table>
+                <div id="bcgAddUenContainer" style="margin-top:0.75rem;">
+                  <button id="bcgAddUenBtn" class="btn-small btn-primary"><i class="bi bi-plus-lg"></i> Agregar servicio</button>
+                </div>
               </div>
 
               <div class="bcg-panel" id="bcgPanel2">
-                <div class="bcg-panel-desc">Ingrese las ventas globales estimadas del mercado en el sector para el año anterior y el año actual de cada servicio. Esto determinará el eje de crecimiento del mercado.</div>
                 <table class="bcg-wizard-table" id="bcgTablePaso2">
                   <thead>
                     <tr>
@@ -680,7 +721,6 @@
               </div>
 
               <div class="bcg-panel" id="bcgPanel3">
-                <div class="bcg-panel-desc">Identifique al rival comercial líder del mercado para cada servicio e ingrese su volumen de ventas estimado para evaluar nuestra participación de mercado relativa.</div>
                 <table class="bcg-wizard-table" id="bcgTablePaso3">
                   <thead>
                     <tr>
@@ -734,22 +774,6 @@
       </div>
 
       <!-- MODAL DE CONFIRMACIÓN PARA RECALCULAR -->
-      <div id="m05ConfirmModal" class="m01-modal" style="display: none;">
-        <div class="m01-modal-content">
-          <div class="m01-modal-header" style="border-bottom-color: #f1f5f9;">
-            <h3 style="color: #d97706; display: flex; align-items: center; gap: 0.5rem; margin: 0; font-size: 1.1rem;"><i class="bi bi-exclamation-triangle-fill"></i> Modificar Matriz BCG</h3>
-            <button type="button" class="m01-modal-close" onclick="cerrarBcgModal('m05ConfirmModal')"><i class="bi bi-x-lg"></i></button>
-          </div>
-          <div class="m01-modal-body" style="padding: 1.5rem;">
-            <p style="color: #475569; line-height: 1.6; margin: 0; font-size: 0.92rem;">¿Está seguro de que desea modificar los datos? Esto alterará el reporte actual que la gerencia y los aprobadores están revisando.</p>
-          </div>
-          <div class="m01-modal-footer">
-            <button type="button" class="btn-secondary" onclick="cerrarBcgModal('m05ConfirmModal')">Cancelar</button>
-            <button type="button" class="btn-primary" style="background-color: #d97706; border-color: #d97706; color: white;" id="m05ConfirmRecalcularBtn">Sí, modificar</button>
-          </div>
-        </div>
-      </div>
-
       <!-- MODAL DE ADVERTENCIA / ERROR DE VALIDACIÓN -->
       <div id="m05WarningModal" class="m01-modal" style="display: none;">
         <div class="m01-modal-content">
@@ -809,7 +833,7 @@
           </div>
           <span class="m05-badge-progreso" id="m06EstadoBadge">No iniciado</span>
         </div>
-        <div id="m06AlertBanner" class="m05-alert-banner" style="display:none;"><i class="bi bi-info-circle-fill"></i><span id="m06AlertText">Este plan ya cuenta con un analisis Porter procesado.</span></div>
+        <div id="m06AlertBanner" class="m05-alert-banner" style="display:none;justify-content:space-between;align-items:center;"><span><i class="bi bi-info-circle-fill"></i> <span id="m06AlertText">Este planeamiento ya cuenta con un análisis Porter procesado.</span></span><button class="btn-actualizar-cadena" id="porterBackBtn" style="flex-shrink:0;font-size:0.8rem;padding:0.4rem 1rem;"><i class="bi bi-arrow-repeat"></i> Actualizar análisis</button></div>
         <div id="porterWizardContainer">
           <div class="m01-tip-banner" id="m06TipBanner"><i class="bi bi-lightbulb-fill" style="color:#f59e0b;"></i><span id="m06TipText">Evalue el impacto de cada variable de la fuerza en el sector.</span></div>
           <div class="wizard-stepper-container">
@@ -838,9 +862,8 @@
           </div>
         </div>
         <div id="porterResultsContainer" class="resultados-finales-container" style="display:none;">
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
+          <div style="display:flex;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
             <div><h2 style="font-size:1.6rem;font-weight:800;color:#0f172a;">Analisis Porter Completado</h2><p style="color:#64748b;font-size:0.92rem;">Intensidad competitiva y recomendaciones.</p></div>
-            <button class="btn-actualizar-cadena" id="porterBackBtn">Actualizar analisis</button>
           </div>
           <div class="resumen-cards-grid">
             <div class="resumen-card-premium"><span class="card-label">Intensidad Competitiva</span><div class="clasificacion-total-premium" id="porterIntensidad">—</div><p class="card-subtext" id="porterIntensidadTxt">—</p></div>
@@ -862,7 +885,7 @@
           </div>
           <span class="m05-badge-progreso" id="m07EstadoBadge">No iniciado</span>
         </div>
-        <div id="pestAlertBanner" class="m05-alert-banner" style="display:none;"><i class="bi bi-info-circle-fill"></i><span id="pestAlertText">Este plan ya cuenta con un analisis PEST procesado.</span></div>
+        <div id="pestAlertBanner" class="m05-alert-banner" style="display:none;justify-content:space-between;align-items:center;"><span><i class="bi bi-info-circle-fill"></i> <span id="pestAlertText">Este planeamiento ya cuenta con un análisis PEST procesado.</span></span><button class="btn-actualizar-cadena" id="pestBackBtn" style="flex-shrink:0;font-size:0.8rem;padding:0.4rem 1rem;"><i class="bi bi-arrow-repeat"></i> Actualizar análisis</button></div>
         <div id="pestWizardContainer">
           <div class="m01-tip-banner" id="pestTipBanner"><i class="bi bi-lightbulb-fill" style="color:#f59e0b;"></i><span id="pestTipText">Evalue el impacto de cada factor del entorno general en el sector.</span></div>
           <div class="wizard-stepper-container">
@@ -891,9 +914,8 @@
           </div>
         </div>
         <div id="pestResultsContainer" class="resultados-finales-container" style="display:none;">
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
+          <div style="display:flex;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
             <div><h2 style="font-size:1.6rem;font-weight:800;color:#0f172a;">Diagnostico del Entorno General</h2><p style="color:#64748b;font-size:0.92rem;">Impacto de los factores externos y recomendaciones estrategicas.</p></div>
-            <button class="btn-actualizar-cadena" id="pestBackBtn">Actualizar diagnostico</button>
           </div>
           <div class="resumen-cards-grid">
             <div class="resumen-card-premium"><span class="card-label">Impacto Global (norm)</span><div class="clasificacion-total-premium" id="pestImpacto">—</div><p class="card-subtext" id="pestImpactoTxt">—</p></div>
@@ -915,7 +937,7 @@
           </div>
           <span class="m05-badge-progreso" id="m08EstadoBadge">No iniciado</span>
         </div>
-        <div id="dafoAlertBanner" class="m05-alert-banner" style="display:none;"><i class="bi bi-info-circle-fill"></i><span id="dafoAlertText">Este plan ya cuenta con una Matriz DAFO procesada.</span></div>
+        <div id="dafoAlertBanner" class="m05-alert-banner" style="display:none;justify-content:space-between;align-items:center;"><span><i class="bi bi-info-circle-fill"></i> <span id="dafoAlertText">Este planeamiento ya cuenta con una Matriz DAFO procesada.</span></span><button class="btn-actualizar-cadena" id="dafoBackBtn" style="flex-shrink:0;font-size:0.8rem;padding:0.4rem 1rem;"><i class="bi bi-arrow-repeat"></i> Editar matriz</button></div>
         <div id="dafoWizardContainer">
           <div class="m01-tip-banner"><i class="bi bi-lightbulb-fill" style="color:#f59e0b;"></i><span>Puntue cada relacion estrategica de 0 a 4 segun el grado de influencia entre los factores.</span></div>
 
@@ -945,9 +967,8 @@
           </div>
         </div>
         <div id="dafoResultsContainer" style="display:none;">
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
+          <div style="display:flex;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
             <div><h2 style="font-size:1.6rem;font-weight:800;color:#0f172a;">Matriz DAFO Procesada</h2><p style="color:#64748b;font-size:0.92rem;">Resultados del cruce estrategico de factores.</p></div>
-            <button class="btn-actualizar-cadena" id="dafoBackBtn"><i class="bi bi-arrow-repeat"></i> Editar matriz</button>
           </div>
           <div id="dafoResultsBody"></div>
           <div class="dafo-synthesis" style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:1rem;">
@@ -958,7 +979,18 @@
           </div>
         </div>
       </div>
-      <div id="m09" class="section-content"><h1>Matriz CAME</h1><div class="edit-group"><label>Contenido (JSON)</label><textarea id="m09Contenido" rows="8" placeholder='{"corregir":"...","afrontar":"...","mantener":"...","explotar":"..."}'></textarea></div><button id="saveM09" class="btn-primary">Guardar cambios</button></div>
+      <div id="m09" class="section-content">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
+          <div>
+            <h1 style="font-size:1.8rem;font-weight:800;color:#0f172a;margin:0;letter-spacing:-0.02em;">Matriz CAME</h1>
+            <p style="color:#64748b;font-size:0.92rem;margin:0.25rem 0 0 0;">Estrategias derivadas del cruce DAFO: Corregir, Afrontar, Mantener y Explotar.</p>
+          </div>
+          <span class="m05-badge-progreso" id="m09EstadoBadge">No iniciado</span>
+        </div>
+        <div class="m05-alert-banner"><span><i class="bi bi-info-circle-fill"></i> <span>Complete la Matriz CAME con las estrategias derivadas del DAFO.</span></span></div>
+        <div class="edit-group" style="margin-top:1.5rem;"><label>Contenido (JSON)</label><textarea id="m09Contenido" rows="8" placeholder='{"corregir":"...","afrontar":"...","mantener":"...","explotar":"..."}'></textarea></div>
+        <button id="saveM09" class="btn-primary">Guardar cambios</button>
+      </div>
 
       <!-- KPIs e Iniciativas -->
       <div id="kpis" class="section-content"><h1>KPIs estratégicos</h1><div id="kpisContainer"></div><button id="agregarKPI" class="btn-primary">+ Nuevo KPI</button></div>
