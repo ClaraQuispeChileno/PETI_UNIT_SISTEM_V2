@@ -3345,6 +3345,16 @@ function setupEventListeners() {
         badge.className = 'm05-badge-progreso actualizando';
       }
       
+      // Actualizar banner y ocultar botón inmediatamente
+      var alertBanner = document.getElementById('m04AlertBanner');
+      var alertText = document.getElementById('m04AlertText');
+      if (alertBanner) {
+        alertBanner.style.display = 'flex';
+        alertBanner.style.justifyContent = 'center';
+      }
+      if (alertText) alertText.textContent = 'Este planeamiento se está actualizando, no olvide guardar el registro.';
+      if (backBtn) backBtn.style.display = 'none';
+      
       try {
         await supabaseClient.from('autodiag_cadena').delete().eq('plan_id', currentPlanId);
       } catch (_) {}
