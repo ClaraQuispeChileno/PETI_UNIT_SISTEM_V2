@@ -3652,7 +3652,23 @@ function setupEventListeners() {
     }
   }
 
-  // Delegación de eventos FODA M04 (edición local en m04FodaItems)
+  async function persistirM04FodaInmediato() {
+    try {
+      await supabaseClient.from('cadena_valor_foda').delete().eq('plan_id', currentPlanId);
+      if (m04FodaItems.length > 0) {
+        var inserts = m04FodaItems.map(function(item) {
+          return { plan_id: currentPlanId, tipo: item.tipo, descripcion: item.descripcion };
+        });
+        var { error: insErr } = await supabaseClient.from('cadena_valor_foda').insert(inserts);
+        if (insErr) throw insErr;
+      }
+    } catch (err) {
+      console.error('[M04 FODA] Error al guardar:', err);
+      showToast('Error al guardar: ' + err.message, 'error');
+    }
+  }
+
+  // Delegación de eventos FODA M04 (persiste inmediatamente en BD)
   document.addEventListener('click', async (e) => {
     var deleteBtn = e.target.closest('.foda-delete-btn');
     if (deleteBtn) {
@@ -3660,6 +3676,7 @@ function setupEventListeners() {
       if (id && confirm('¿Eliminar este elemento?')) {
         m04FodaItems = m04FodaItems.filter(function(item) { return String(item.id) !== id; });
         renderFodaTables();
+        await persistirM04FodaInmediato();
       }
       return;
     }
@@ -3686,6 +3703,7 @@ function setupEventListeners() {
       }
       m04EditingId = null;
       renderFodaTables();
+      await persistirM04FodaInmediato();
       return;
     }
     var cancelEditBtn = e.target.closest('.foda-cancel-btn');
@@ -3706,6 +3724,7 @@ function setupEventListeners() {
       m04FodaItems.push({ id: tempId, tipo: tipo, descripcion: desc });
       input.value = '';
       renderFodaTables();
+      await persistirM04FodaInmediato();
       return;
     }
 
@@ -3772,21 +3791,11 @@ function setupEventListeners() {
     }
   });
 
-  // Guardar resultados M04 (persiste respuestas + FODA)
+  // Guardar resultados M04 (persiste solo respuestas; FODA ya se guardó inmediatamente)
   var guardarBtn = document.getElementById('guardarResultadosM04Btn');
   if (guardarBtn) {
     guardarBtn.onclick = async function() {
       try {
-        // 1. Primero persistir FODA local (antes de que finalizarDiagnostico recargue)
-        await supabaseClient.from('cadena_valor_foda').delete().eq('plan_id', currentPlanId);
-        if (m04FodaItems.length > 0) {
-          var inserts = m04FodaItems.map(function(item) {
-            return { plan_id: currentPlanId, tipo: item.tipo, descripcion: item.descripcion };
-          });
-          var { error: insErr } = await supabaseClient.from('cadena_valor_foda').insert(inserts);
-          if (insErr) throw insErr;
-        }
-        // 2. Luego guardar respuestas y recargar
         await finalizarDiagnostico();
         showToast('Los cambios fueron guardados', 'success');
       } catch (err) {

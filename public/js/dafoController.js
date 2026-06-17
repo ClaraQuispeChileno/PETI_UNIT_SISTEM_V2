@@ -43,55 +43,49 @@ function cargarDafo() {
     var pid = currentPlanId;
 
     // Cargar F/D/O/A registrados en base de datos por modulo + plan_contenido M08
-    var p1 = supabaseClient.from("foda").select("*").eq("plan_id", pid).or('generado_auto.is.false,generado_auto.is.null').order("id");
+    var p1 = supabaseClient.from("foda").select("*").eq("plan_id", pid).order("id");
     var p2 = supabaseClient.from("cadena_valor_foda").select("*").eq("plan_id", pid).order("id");
-    var p3 = supabaseClient.from("bcg_foda").select("*").eq("plan_id", pid).order("id");
+    var p3 = supabaseClient.from("bcg_foda").select("*").eq("plan_id", pid).not("generado_auto", "eq", true).order("id");
     var p4 = supabaseClient.from("porter_oa").select("*").eq("plan_id", pid).order("id");
     var p5 = supabaseClient.from("pest_oa").select("*").eq("plan_id", pid).order("id");
     var p6 = supabaseClient.from("plan_contenido").select("contenido").eq("plan_id", pid).eq("modulo_id", "M08").maybeSingle();
 
     Promise.all([p1, p2, p3, p4, p5, p6]).then(function(results) {
-      function descExists(arr, desc) {
-        return arr.some(function(x){ return x.descripcion === desc; });
-      }
+      function valid(item) { return item && item.tipo && item.descripcion; }
+      function descExists(arr, desc) { return arr.some(function(x){ return x.descripcion === desc; }); }
 
-      // Items propios de la tabla foda
-      var fodaData = (results[0].data || []).filter(function(x){ return x && x.tipo && x.descripcion; });
-      itemsF = fodaData.filter(function(x){ return x.tipo === "fortaleza"; });
-      itemsD = fodaData.filter(function(x){ return x.tipo === "debilidad"; });
-      itemsO = fodaData.filter(function(x){ return x.tipo === "oportunidad"; });
-      itemsA = fodaData.filter(function(x){ return x.tipo === "amenaza"; });
+      // Datos de foda solo se usan para migrar puntajes previos; no se muestran como items
+      var fodaData = (results[0].data || []).filter(valid);
+
+      // Resetear items mostrados: solo provienen de las tablas de cada modulo
+      itemsF = []; itemsD = []; itemsO = []; itemsA = [];
 
       // Fortalezas/Debilidades desde Cadena de Valor (M04)
-      var cadData = (results[1].data || []).filter(function(x){ return x && x.tipo && x.descripcion; });
-      cadData.forEach(function(item) {
-        var wrap = { id: "cad_valor_" + item.id, tipo: item.tipo, descripcion: item.descripcion, trazabilidad: { origen: "cadena_valor_foda", id: item.id } };
-        if (item.tipo === "fortaleza" && !descExists(itemsF, item.descripcion)) itemsF.push(wrap);
-        else if (item.tipo === "debilidad" && !descExists(itemsD, item.descripcion)) itemsD.push(wrap);
+      (results[1].data || []).filter(valid).forEach(function(item) {
+        if (item.tipo !== "fortaleza" && item.tipo !== "debilidad") return;
+        if (descExists(itemsF, item.descripcion) || descExists(itemsD, item.descripcion)) return;
+        (item.tipo === "fortaleza" ? itemsF : itemsD).push({ id: "cad_valor_" + item.id, tipo: item.tipo, descripcion: item.descripcion, trazabilidad: { origen: "cadena_valor_foda", id: item.id } });
       });
 
       // Fortalezas/Debilidades desde BCG (M05)
-      var bcgData = (results[2].data || []).filter(function(x){ return x && x.tipo && x.descripcion; });
-      bcgData.forEach(function(item) {
-        var wrap = { id: "bcg_foda_" + item.id, tipo: item.tipo, descripcion: item.descripcion, trazabilidad: { origen: "bcg_foda", id: item.id } };
-        if (item.tipo === "fortaleza" && !descExists(itemsF, item.descripcion)) itemsF.push(wrap);
-        else if (item.tipo === "debilidad" && !descExists(itemsD, item.descripcion)) itemsD.push(wrap);
+      (results[2].data || []).filter(valid).forEach(function(item) {
+        if (item.tipo !== "fortaleza" && item.tipo !== "debilidad") return;
+        if (descExists(itemsF, item.descripcion) || descExists(itemsD, item.descripcion)) return;
+        (item.tipo === "fortaleza" ? itemsF : itemsD).push({ id: "bcg_foda_" + item.id, tipo: item.tipo, descripcion: item.descripcion, trazabilidad: { origen: "bcg_foda", id: item.id } });
       });
 
       // Oportunidades/Amenazas desde Porter (M06)
-      var porterData = (results[3].data || []).filter(function(x){ return x && x.tipo && x.descripcion; });
-      porterData.forEach(function(item) {
-        var wrap = { id: "porter_oa_" + item.id, tipo: item.tipo, descripcion: item.descripcion, trazabilidad: { origen: "porter_oa", id: item.id } };
-        if (item.tipo === "oportunidad" && !descExists(itemsO, item.descripcion)) itemsO.push(wrap);
-        else if (item.tipo === "amenaza" && !descExists(itemsA, item.descripcion)) itemsA.push(wrap);
+      (results[3].data || []).filter(valid).forEach(function(item) {
+        if (item.tipo !== "oportunidad" && item.tipo !== "amenaza") return;
+        if (descExists(itemsO, item.descripcion) || descExists(itemsA, item.descripcion)) return;
+        (item.tipo === "oportunidad" ? itemsO : itemsA).push({ id: "porter_oa_" + item.id, tipo: item.tipo, descripcion: item.descripcion, trazabilidad: { origen: "porter_oa", id: item.id } });
       });
 
       // Oportunidades/Amenazas desde PEST (M07)
-      var pestData = (results[4].data || []).filter(function(x){ return x && x.tipo && x.descripcion; });
-      pestData.forEach(function(item) {
-        var wrap = { id: "pest_oa_" + item.id, tipo: item.tipo, descripcion: item.descripcion, trazabilidad: { origen: "pest_oa", id: item.id } };
-        if (item.tipo === "oportunidad" && !descExists(itemsO, item.descripcion)) itemsO.push(wrap);
-        else if (item.tipo === "amenaza" && !descExists(itemsA, item.descripcion)) itemsA.push(wrap);
+      (results[4].data || []).filter(valid).forEach(function(item) {
+        if (item.tipo !== "oportunidad" && item.tipo !== "amenaza") return;
+        if (descExists(itemsO, item.descripcion) || descExists(itemsA, item.descripcion)) return;
+        (item.tipo === "oportunidad" ? itemsO : itemsA).push({ id: "pest_oa_" + item.id, tipo: item.tipo, descripcion: item.descripcion, trazabilidad: { origen: "pest_oa", id: item.id } });
       });
 
       dafoCompletado = itemsF.length > 0 || itemsD.length > 0 || itemsO.length > 0 || itemsA.length > 0;
@@ -102,6 +96,18 @@ function cargarDafo() {
       } else {
         scores = {};
       }
+
+      // Migrar puntajes previos de registros foda a items de modulos con igual descripcion+tipo
+      var allItems = itemsF.concat(itemsD).concat(itemsO).concat(itemsA);
+      fodaData.forEach(function(f) {
+        var oldKey = "" + f.id;
+        if (scores[oldKey] === undefined) return;
+        var match = allItems.find(function(x){ return x.tipo === f.tipo && x.descripcion === f.descripcion; });
+        if (match && scores["" + match.id] === undefined) {
+          scores["" + match.id] = scores[oldKey];
+        }
+      });
+
       dafoModoActualizacion = false;
       currentStep = 1;
       renderDafoUI();
