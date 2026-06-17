@@ -1100,8 +1100,8 @@ async function navegarSiguiente() {
     renderWizardBlock();
     document.getElementById('m04')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } else {
-    // Bloque 5 completado → finalizar diagnóstico
-    await finalizarDiagnostico();
+    // Bloque 5 completado → mostrar resultados sin guardar aún
+    mostrarPantallaResultados();
   }
 }
 
@@ -1170,13 +1170,47 @@ async function mostrarPantallaResultados() {
   // Cargar tablas de trazabilidad
   await cargarTablasTrazabilidad();
   
-  // Mostrar/ocultar elementos según modo
-  var alertBanner = document.getElementById('m04AlertBanner');
-  if (alertBanner) {
-    alertBanner.style.display = m04CompletadoPreviamente ? 'flex' : 'none';
+  // Actualizar badge según modo
+  var badge = document.getElementById('m04EstadoBadge');
+  if (badge) {
+    if (m04ModoActualizacion) {
+      badge.textContent = 'ACTUALIZANDO';
+      badge.className = 'm05-badge-progreso actualizando';
+    } else if (m04CompletadoPreviamente) {
+      badge.textContent = 'COMPLETO';
+      badge.className = 'm05-badge-progreso completado';
+    } else {
+      badge.textContent = 'NO INICIADO';
+      badge.className = 'm05-badge-progreso no-iniciado';
+    }
   }
+  
+  // Configurar alert banner y botones según modo
+  var alertBanner = document.getElementById('m04AlertBanner');
+  var alertText = document.getElementById('m04AlertText');
+  var updateBtn = document.getElementById('btnBackToWizard');
   var saveSection = document.getElementById('m04SaveSection');
-  if (saveSection) saveSection.style.display = 'flex';
+  
+  // Mostrar save/cancel si estamos en actualización O es primera vez (aún no guardado)
+  var showSaveCancel = m04ModoActualizacion || !m04CompletadoPreviamente;
+  
+  if (showSaveCancel) {
+    if (alertBanner) {
+      alertBanner.style.display = 'flex';
+      alertBanner.style.justifyContent = 'center';
+    }
+    if (alertText) alertText.textContent = 'Este planeamiento se está actualizando, no olvide guardar sus actualizaciones.';
+    if (updateBtn) updateBtn.style.display = 'none';
+    if (saveSection) saveSection.style.display = 'flex';
+  } else {
+    if (alertBanner) {
+      alertBanner.style.display = m04CompletadoPreviamente ? 'flex' : 'none';
+      alertBanner.style.justifyContent = 'space-between';
+    }
+    if (alertText) alertText.textContent = 'Este planeamiento ya cuenta con una Cadena de Valor generada.';
+    if (updateBtn) updateBtn.style.display = '';
+    if (saveSection) saveSection.style.display = 'none';
+  }
 }
 
 // RENDER DESGLOSE POR BLOQUES (Cards)
@@ -3299,6 +3333,13 @@ function setupEventListeners() {
       m04ModoActualizacion = true;
       currentStepM04 = 1;
       
+      // Cambiar badge a ACTUALIZANDO
+      var badge = document.getElementById('m04EstadoBadge');
+      if (badge) {
+        badge.textContent = 'ACTUALIZANDO';
+        badge.className = 'm05-badge-progreso actualizando';
+      }
+      
       try {
         await supabaseClient.from('autodiag_cadena').delete().eq('plan_id', currentPlanId);
       } catch (_) {}
@@ -3441,7 +3482,7 @@ function setupEventListeners() {
   if (guardarBtn) {
     guardarBtn.onclick = async function() {
       try {
-        // Persistir FODA local en cadena_valor_foda
+        // 1. Primero persistir FODA local (antes de que finalizarDiagnostico recargue)
         await supabaseClient.from('cadena_valor_foda').delete().eq('plan_id', currentPlanId);
         if (m04FodaItems.length > 0) {
           var inserts = m04FodaItems.map(function(item) {
@@ -3450,8 +3491,8 @@ function setupEventListeners() {
           var { error: insErr } = await supabaseClient.from('cadena_valor_foda').insert(inserts);
           if (insErr) throw insErr;
         }
-        showToast('Resultados guardados correctamente.', 'success');
-        await cargarCadenaValor();
+        // 2. Luego guardar respuestas y recargar
+        await finalizarDiagnostico();
       } catch (err) {
         console.error('[M04] Error al guardar resultados:', err);
         showToast('Error al guardar: ' + err.message, 'error');
