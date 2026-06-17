@@ -450,7 +450,7 @@ function cargarPest() {
 function setupEvents() {
   var ppb = document.getElementById("pestPrevBtn"); if (ppb) ppb.onclick = anterior;
   var pnb = document.getElementById("pestNextBtn"); if (pnb) pnb.onclick = siguiente;
-  var pcb = document.getElementById("pestCancelBtn"); if (pcb) pcb.onclick = function() { modoActualizacion = false; cargarPest(); };
+  var pcb = document.getElementById("pestCancelBtn"); if (pcb) pcb.onclick = function() { document.getElementById("pestCancelConfirmModal").style.display = "flex"; };
   var pbb = document.getElementById("pestBackBtn"); if (pbb) pbb.onclick = function() {
     modoActualizacion = true; completadoPreviamente = false;
     respuestas = {};
