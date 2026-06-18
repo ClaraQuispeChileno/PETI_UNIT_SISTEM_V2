@@ -163,13 +163,17 @@ function cargarDafo() {
       dafoHayDatosGuardados = false;
       matrixScores = {};
 
-      if (pcRes && pcRes.contenido) {
-        if (pcRes.contenido.matrixScores) {
-          matrixScores = JSON.parse(JSON.stringify(pcRes.contenido.matrixScores));
+      if (pcRes && pcRes.contenido && pcRes.contenido.matrixScores) {
+        var saved = pcRes.contenido;
+        var factorCountMatch =
+          saved.total_fortalezas === itemsF.length &&
+          saved.total_debilidades === itemsD.length &&
+          saved.total_oportunidades === itemsO.length &&
+          saved.total_amenazas === itemsA.length;
+
+        if (factorCountMatch) {
+          matrixScores = JSON.parse(JSON.stringify(saved.matrixScores));
           dafoHayDatosGuardados = hasMatrixData();
-        } else if (pcRes.contenido.scores) {
-          matrixScores = {};
-          dafoHayDatosGuardados = false;
         }
       }
 
@@ -299,13 +303,6 @@ function renderSintesisResultados() {
     html += '</tr>';
   });
   html += '</tbody></table></div>';
-  html += '<div class="dafo-sintesis-resumen">';
-  html += '<div class="dafo-sintesis-summary-grid">';
-  html += '<div class="dafo-sintesis-summary-item"><span class="dafo-sintesis-summary-label">Fortalezas</span><span class="dafo-sintesis-summary-value">' + itemsF.length + '</span></div>';
-  html += '<div class="dafo-sintesis-summary-item"><span class="dafo-sintesis-summary-label">Debilidades</span><span class="dafo-sintesis-summary-value">' + itemsD.length + '</span></div>';
-  html += '<div class="dafo-sintesis-summary-item"><span class="dafo-sintesis-summary-label">Oportunidades</span><span class="dafo-sintesis-summary-value">' + itemsO.length + '</span></div>';
-  html += '<div class="dafo-sintesis-summary-item"><span class="dafo-sintesis-summary-label">Amenazas</span><span class="dafo-sintesis-summary-value">' + itemsA.length + '</span></div>';
-  html += '</div></div>';
   html += '</div>';
 
   container.innerHTML = html;
@@ -639,14 +636,6 @@ function mostrarSintesisResultados() {
     html += '</tr>';
   });
   html += '</tbody></table></div>';
-  html += '<div class="dafo-sintesis-resumen">';
-  html += '<div class="dafo-sintesis-summary-grid">';
-  html += '<div class="dafo-sintesis-summary-item"><span class="dafo-sintesis-summary-label">Fortalezas</span><span class="dafo-sintesis-summary-value">' + itemsF.length + '</span></div>';
-  html += '<div class="dafo-sintesis-summary-item"><span class="dafo-sintesis-summary-label">Debilidades</span><span class="dafo-sintesis-summary-value">' + itemsD.length + '</span></div>';
-  html += '<div class="dafo-sintesis-summary-item"><span class="dafo-sintesis-summary-label">Oportunidades</span><span class="dafo-sintesis-summary-value">' + itemsO.length + '</span></div>';
-  html += '<div class="dafo-sintesis-summary-item"><span class="dafo-sintesis-summary-label">Amenazas</span><span class="dafo-sintesis-summary-value">' + itemsA.length + '</span></div>';
-  html += '</div></div>';
-
   html += '<div id="dafoSaveSection" style="display:flex;justify-content:center;gap:1rem;margin-top:1.5rem;padding-top:1.5rem;border-top:2px solid #e2e8f0;">';
   html += '<button id="dafoGuardarActualizacionBtn" class="btn-primary" style="background:#2563eb;color:white;padding:0.7rem 2rem;font-weight:700;font-size:0.95rem;"><i class="bi bi-check-lg"></i> Guardar actualizaci\u00f3n</button>';
   html += '<button id="dafoCancelarActualizacionBtn" class="btn-secondary" style="padding:0.7rem 2rem;font-weight:600;font-size:0.95rem;"><i class="bi bi-x-lg"></i> Cancelar actualizaci\u00f3n</button>';
