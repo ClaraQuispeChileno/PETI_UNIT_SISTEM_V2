@@ -3,7 +3,7 @@ let supabaseClient;
 let currentUser = null;
 let currentAprobarPlanId = null;
 let currentTabPlanes = 'todos';
-let currentTabAlertas = 'todas';
+
 let selectedReportPlanId = null;
 let comentariosPorModulo = {};
 
@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (sectionId === 'aprobar') await cargarAprobarPlanes();
       if (sectionId === 'empresa') await cargarM01Global();
       if (sectionId === 'planes') await cargarPlanesGenerados();
-      if (sectionId === 'alertas') await cargarAlertasConFiltros();
+
       document.querySelectorAll('.section-content').forEach(sec => sec.classList.remove('active-section'));
       document.getElementById(sectionId).classList.add('active-section');
       document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
@@ -118,10 +118,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Obs modal
   document.getElementById('obsConfirmBtn').addEventListener('click', confirmarAprobacionConObs);
   document.getElementById('obsCancelBtn').addEventListener('click', () => { document.getElementById('observacionModal').style.display = 'none'; });
-
-  // Escalar modal
-  document.getElementById('escalarConfirmBtn').addEventListener('click', confirmarEscalar);
-  document.getElementById('escalarCancelBtn').addEventListener('click', () => { document.getElementById('escalarAlertaModal').style.display = 'none'; });
 
   // Nuevo plan
   document.getElementById('nuevoPlanBtn').addEventListener('click', abrirModalNuevoPlan);
@@ -169,16 +165,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // Tabs Alertas
-  document.querySelectorAll('#alertasTabs .itab').forEach(tab => {
-    tab.addEventListener('click', async () => {
-      document.querySelectorAll('#alertasTabs .itab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      currentTabAlertas = tab.getAttribute('data-tab');
-      await cargarAlertasConFiltros();
-    });
-  });
-
   // Reportes: selector de plan
   document.getElementById('reportePlanSelector').addEventListener('change', async function() {
     selectedReportPlanId = this.value ? parseInt(this.value) : null;
@@ -198,14 +184,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ==================== BADGES ====================
 
 async function actualizarBadges() {
-  const [countAprobarRes, countAlertasRes] = await Promise.all([
-    supabaseClient.from('planes').select('id', { count: 'exact', head: true }).eq('estado', 'en_revision'),
-    supabaseClient.from('alertas').select('id', { count: 'exact', head: true }).eq('revisado', false)
-  ]);
+  const { count } = await supabaseClient.from('planes').select('id', { count: 'exact', head: true }).eq('estado', 'en_revision');
   const badgeA = document.getElementById('navAprobarBadge');
-  const badgeB = document.getElementById('navAlertasBadge');
-  if (badgeA) { if (countAprobarRes.count > 0) { badgeA.style.display = 'inline-block'; badgeA.innerText = countAprobarRes.count; } else badgeA.style.display = 'none'; }
-  if (badgeB) { if (countAlertasRes.count > 0) { badgeB.style.display = 'inline-block'; badgeB.innerText = countAlertasRes.count; } else badgeB.style.display = 'none'; }
+  if (badgeA) { if (count > 0) { badgeA.style.display = 'inline-block'; badgeA.innerText = count; } else badgeA.style.display = 'none'; }
 }
 
 // ==================== DASHBOARD ====================
@@ -216,6 +197,7 @@ async function cargarDashboard() {
   document.getElementById('totalPlanes').innerText = planes.length;
   document.getElementById('planesActivos').innerText = planes.filter(p => p.estado === 'activo').length;
   document.getElementById('planesEnRevision').innerText = planes.filter(p => p.estado === 'en_revision').length;
+  document.getElementById('planesBorradores').innerText = planes.filter(p => p.estado === 'borrador').length;
 }
 
 // ==================== DETECCIÓN DE PLANES VENCIDOS ====================
@@ -319,6 +301,15 @@ async function cargarAprobarPlanes() {
   const modulos = modulosResult.data || [];
   const planes = planesResult.data || [];
 
+  if (!cachedM01) {
+    const [empresaRes, globalRes] = await Promise.all([
+      supabaseClient.from('empresa').select('*').eq('id', 1).single(),
+      supabaseClient.from('empresa_contenido').select('*').eq('id', 1).single()
+    ]);
+    cachedM01 = { empresa: empresaRes.data, contenido: globalRes.data };
+  }
+  const global = cachedM01?.contenido || {};
+
   const container = document.getElementById('aprobarPlanesList');
   if (!container) return;
 
@@ -370,6 +361,9 @@ async function cargarAprobarPlanes() {
   for (const plan of planes) {
     const contenidos = contenidosByPlan[plan.id] || [];
     const compMap = Object.fromEntries(contenidos.map(c => [c.modulo_id, c.completado]));
+    if (!!global.mision?.trim()) compMap['M01'] = true;
+    if (!!global.vision?.trim()) compMap['M02'] = true;
+    if (Array.isArray(global.valores) && global.valores.length > 0) compMap['M03'] = true;
     const completados = Object.values(compMap).filter(Boolean).length;
     const pct = modulos.length ? Math.round((completados / modulos.length) * 100) : 0;
     const diasDesde = Math.round((Date.now() - new Date(plan.created_at)) / 86400000);
@@ -513,8 +507,14 @@ window.toggleLecturaModulo = function(header) {
 async function verResumenEjecutivo(planId) {
   const { data: plan } = await supabaseClient.from('planes').select('*').eq('id', planId).single();
   if (!plan) return;
-  const { data: m01 } = await supabaseClient.from('plan_contenido').select('contenido').eq('plan_id', planId).eq('modulo_id', 'M01').single();
-  const info = m01?.contenido || {};
+  if (!cachedM01) {
+    const [empresaRes, globalRes] = await Promise.all([
+      supabaseClient.from('empresa').select('*').eq('id', 1).single(),
+      supabaseClient.from('empresa_contenido').select('*').eq('id', 1).single()
+    ]);
+    cachedM01 = { empresa: empresaRes.data, contenido: globalRes.data };
+  }
+  const infoGlobal = cachedM01?.contenido || {};
   const { data: foo } = await supabaseClient.from('foda').select('tipo, descripcion').eq('plan_id', planId);
   const foda = { fortalezas: [], debilidades: [], oportunidades: [], amenazas: [] };
   (foo || []).forEach(f => { if (f.tipo === 'fortaleza') foda.fortalezas.push(f.descripcion); else if (f.tipo === 'debilidad') foda.debilidades.push(f.descripcion); else if (f.tipo === 'oportunidad') foda.oportunidades.push(f.descripcion); else if (f.tipo === 'amenaza') foda.amenazas.push(f.descripcion); });
@@ -523,8 +523,8 @@ async function verResumenEjecutivo(planId) {
     <div style="display:grid;gap:0.8rem;">
       <h4>${plan.nombre} (${plan.anio})</h4>
       <p style="color:#475569;">${plan.descripcion || 'Sin descripción.'}</p>
-      ${info.mision ? `<div><strong>Misión:</strong> ${info.mision}</div>` : ''}
-      ${info.vision ? `<div><strong>Visión:</strong> ${info.vision}</div>` : ''}
+      ${infoGlobal.mision ? `<div><strong>Misión:</strong> ${infoGlobal.mision}</div>` : ''}
+      ${infoGlobal.vision ? `<div><strong>Visión:</strong> ${infoGlobal.vision}</div>` : ''}
       <div><strong>FODA:</strong> F:${foda.fortalezas.length} D:${foda.debilidades.length} O:${foda.oportunidades.length} A:${foda.amenazas.length}</div>
       <div><span class="pill ${plan.estado === 'en_revision' ? 'pill-amber' : plan.estado === 'activo' ? 'pill-green' : 'pill-gray'}">${plan.estado}</span></div>
     </div>`;
@@ -536,6 +536,20 @@ window.verResumenEjecutivo = verResumenEjecutivo;
 window.cerrarDetallePlan = () => { document.getElementById('detallePlanModal').style.display = 'none'; };
 
 // ==================== PLANES GENERADOS ====================
+
+function sortPlanes(planes) {
+  const isArchived = p => p.estado === 'cerrado' || p.estado === 'rechazado';
+  const estadoOrden = { borrador: 0, activo: 1, en_revision: 2 };
+  return [...planes].sort((a, b) => {
+    const archA = isArchived(a) ? 1 : 0;
+    const archB = isArchived(b) ? 1 : 0;
+    if (archA !== archB) return archA - archB;
+    const ordA = estadoOrden[a.estado] !== undefined ? estadoOrden[a.estado] : 99;
+    const ordB = estadoOrden[b.estado] !== undefined ? estadoOrden[b.estado] : 99;
+    if (ordA !== ordB) return ordA - ordB;
+    return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+  });
+}
 
 async function cargarPlanesGenerados() {
   const [modulosResult, planesResult, allCountsResult] = await Promise.all([
@@ -555,8 +569,17 @@ async function cargarPlanesGenerados() {
   const planesRaw = planesResult.data || [];
   const allPlanes = allCountsResult.data || [];
 
-  const modulos = modulosRaw.filter(m => m.id !== 'M01' && m.id !== 'M02');
-  const planes = [...new Map(planesRaw.map(p => [p.id, p])).values()];
+  const modulos = modulosRaw;
+  const planes = sortPlanes([...new Map(planesRaw.map(p => [p.id, p])).values()]);
+
+  if (!cachedM01) {
+    const [empresaRes, globalRes] = await Promise.all([
+      supabaseClient.from('empresa').select('*').eq('id', 1).single(),
+      supabaseClient.from('empresa_contenido').select('*').eq('id', 1).single()
+    ]);
+    cachedM01 = { empresa: empresaRes.data, contenido: globalRes.data };
+  }
+  const global = cachedM01?.contenido || {};
 
   const container = document.getElementById('planesCardsList');
   if (!container) return;
@@ -603,7 +626,10 @@ async function cargarPlanesGenerados() {
   container.innerHTML = '';
   for (const plan of planes) {
     const contenidos = contenidosByPlan[plan.id] || [];
-    const compMap = Object.fromEntries(contenidos.filter(c => c.modulo_id !== 'M01' && c.modulo_id !== 'M02').map(c => [c.modulo_id, c.completado]));
+    const compMap = Object.fromEntries(contenidos.map(c => [c.modulo_id, c.completado]));
+    if (!!global.mision?.trim()) compMap['M01'] = true;
+    if (!!global.vision?.trim()) compMap['M02'] = true;
+    if (Array.isArray(global.valores) && global.valores.length > 0) compMap['M03'] = true;
     const completados = Object.values(compMap).filter(Boolean).length;
     const totalModulos = modulos.length;
     const pct = totalModulos > 0 ? Math.round((completados / totalModulos) * 100) : 0;
@@ -685,17 +711,51 @@ window.irAAprobar = function(planId) {
   if (aprobarNav) aprobarNav.click();
 };
 
-async function generarResumenModulo(moduloId, contenido, planId) {
-  if (!contenido && moduloId !== 'M03' && moduloId !== 'M05') return '(Sin contenido registrado)';
+const SIN_DATOS = '<em style="color:#94a3b8;font-style:italic;">No hay datos existentes</em>';
 
+function tieneContenido(obj) {
+  if (!obj) return false;
+  if (Array.isArray(obj)) return obj.length > 0;
+  if (typeof obj === 'object') return Object.keys(obj).length > 0;
+  return String(obj).trim().length > 0;
+}
+
+async function generarResumenModulo(moduloId, contenido, planId) {
   try {
-    if (moduloId === 'M03') {
+    if (moduloId === 'M01' || moduloId === 'M02' || moduloId === 'M03') {
+      if (!cachedM01) {
+        const [empresaRes, globalRes] = await Promise.all([
+          supabaseClient.from('empresa').select('*').eq('id', 1).single(),
+          supabaseClient.from('empresa_contenido').select('*').eq('id', 1).single()
+        ]);
+        cachedM01 = { empresa: empresaRes.data, contenido: globalRes.data };
+      }
+      const global = cachedM01?.contenido || {};
+      if (moduloId === 'M01') {
+        const mision = global.mision?.trim();
+        if (!mision) return SIN_DATOS;
+        return `<div><strong style="color:#2563eb;">Misión</strong><p style="margin:0.2rem 0 0 0;color:#334155;">${mision}</p></div>`;
+      }
+      if (moduloId === 'M02') {
+        const vision = global.vision?.trim();
+        if (!vision) return SIN_DATOS;
+        return `<div><strong style="color:#2563eb;">Visión</strong><p style="margin:0.2rem 0 0 0;color:#334155;">${vision}</p></div>`;
+      }
+      const valores = Array.isArray(global.valores) ? global.valores : [];
+      if (valores.length === 0) return SIN_DATOS;
+      return `<strong style="color:#2563eb;">Valores corporativos</strong>
+        <ul style="margin:0.4rem 0 0 1.2rem;padding:0;color:#334155;">
+          ${valores.map(v => `<li style="margin-bottom:0.25rem;"><strong>${v.titulo || v}</strong>${v.descripcion ? `<br><span style="color:#64748b;font-size:0.85em;">${v.descripcion}</span>` : ''}</li>`).join('')}
+        </ul>`;
+    }
+
+    if (moduloId === 'M04') {
       const { data: grales } = await supabaseClient.from('objetivos_generales').select('id, descripcion').eq('plan_id', planId).order('orden');
-      if (!grales || grales.length === 0) return '(Sin objetivos registrados)';
-      let res = `<strong>${grales.length} objetivo(s) general(es):</strong><ul style="margin:0.3rem 0 0 1.2rem;padding:0;">`;
+      if (!grales || grales.length === 0) return SIN_DATOS;
+      let res = `<strong style="color:#2563eb;">${grales.length} objetivo(s) general(es)</strong><ul style="margin:0.3rem 0 0 1.2rem;padding:0;">`;
       for (const g of grales) {
         const { data: especs } = await supabaseClient.from('objetivos_especificos').select('descripcion').eq('objetivo_general_id', g.id).order('orden');
-        res += `<li><strong>${g.descripcion}</strong>`;
+        res += `<li style="margin-bottom:0.3rem;"><strong>${g.descripcion}</strong>`;
         if (especs && especs.length > 0) {
           res += `<ul style="margin:0.1rem 0 0.3rem 1rem;padding:0;color:#475569;">`;
           especs.forEach(e => { res += `<li>${e.descripcion}</li>`; });
@@ -706,44 +766,42 @@ async function generarResumenModulo(moduloId, contenido, planId) {
       return res + '</ul>';
     }
 
-    if (moduloId === 'M04') {
-      const pt = contenido.puntaje_total;
-      const pm = contenido.potencial_mejora;
-      const totalResp = Array.isArray(contenido.respuestas) ? contenido.respuestas.length : 0;
-      if (totalResp === 0) return '(Sin respuestas registradas)';
+    if (moduloId === 'M05') {
+      const info = contenido || {};
+      const pt = info.puntaje_total;
+      const pm = info.potencial_mejora;
+      const totalResp = Array.isArray(info.respuestas) ? info.respuestas.length : 0;
+      if (totalResp === 0) return SIN_DATOS;
       const promedio = (pt / totalResp).toFixed(1);
-      return `<strong>Cadena de Valor — Resumen</strong>
+      return `<strong style="color:#2563eb;">Cadena de Valor — Resumen</strong>
         <div style="margin-top:0.4rem;display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;">
           <div style="background:#f1f5f9;padding:0.4rem 0.6rem;border-radius:0.5rem;text-align:center;">
             <div style="font-size:1.1rem;font-weight:700;color:#0f172a;">${totalResp}</div>
             <div style="font-size:0.65rem;color:#64748b;">Preguntas evaluadas</div>
           </div>
           <div style="background:#f1f5f9;padding:0.4rem 0.6rem;border-radius:0.5rem;text-align:center;">
-            <div style="font-size:1.1rem;font-weight:700;color:#2563eb;">${pt}</div>
+            <div style="font-size:1.1rem;font-weight:700;color:#2563eb;">${pt ?? '—'}</div>
             <div style="font-size:0.65rem;color:#64748b;">Puntaje total</div>
           </div>
           <div style="background:#f1f5f9;padding:0.4rem 0.6rem;border-radius:0.5rem;text-align:center;">
-            <div style="font-size:1.1rem;font-weight:700;color:#059669;">${pm}%</div>
+            <div style="font-size:1.1rem;font-weight:700;color:#059669;">${pm ?? '—'}%</div>
             <div style="font-size:0.65rem;color:#64748b;">Potencial de mejora</div>
           </div>
         </div>
         <div style="margin-top:0.4rem;font-size:0.8rem;color:#475569;">Promedio por pregunta: <strong>${promedio}</strong> / 5.00</div>`;
     }
 
-    if (moduloId === 'M05') {
-      let uens = Array.isArray(contenido) ? contenido : (contenido.datos_uen || []);
+    if (moduloId === 'M06') {
+      let uens = Array.isArray(contenido) ? contenido : (contenido?.datos_uen || []);
       if (uens.length === 0) {
         const { data: bcg } = await supabaseClient.from('matriz_bcg').select('datos_uen').eq('plan_id', planId).single();
         uens = bcg?.datos_uen || [];
       }
-      if (uens.length === 0) return '(Sin datos BCG registrados)';
+      if (uens.length === 0) return SIN_DATOS;
       const cuadrantes = {};
-      uens.forEach(u => {
-        const c = u.cuadrante || '—';
-        cuadrantes[c] = (cuadrantes[c] || 0) + 1;
-      });
+      uens.forEach(u => { cuadrantes[u.cuadrante || '—'] = (cuadrantes[u.cuadrante || '—'] || 0) + 1; });
       const colorMap = { 'Estrella': '#2563eb', 'Vaca': '#059669', 'Interrogante': '#d97706', 'Incógnita': '#d97706', 'Perro': '#dc2626' };
-      let res = `<strong>Matriz BCG — ${uens.length} UEN(s) analizada(s)</strong><div style="margin-top:0.3rem;display:flex;flex-wrap:wrap;gap:0.3rem;">`;
+      let res = `<strong style="color:#2563eb;">Matriz BCG — ${uens.length} UEN(s) analizada(s)</strong><div style="margin-top:0.3rem;display:flex;flex-wrap:wrap;gap:0.3rem;">`;
       for (const [c, count] of Object.entries(cuadrantes)) {
         const color = colorMap[c] || '#64748b';
         res += `<span style="background:${color}15;color:${color};padding:0.15rem 0.5rem;border-radius:1rem;font-size:0.75rem;font-weight:600;">${c}: ${count}</span>`;
@@ -756,34 +814,36 @@ async function generarResumenModulo(moduloId, contenido, planId) {
       return res + '</ul>';
     }
 
-    if (moduloId === 'M06') {
-      const labelsMap = { rivalidad: 'Rivalidad', nuevosEntrantes: 'Nuevos entrantes', poderClientes: 'Poder clientes', poderProveedores: 'Poder proveedores', sustitutos: 'Sustitutos' };
-      let res = '<strong>5 Fuerzas de Porter</strong><div style="margin-top:0.3rem;display:flex;flex-direction:column;gap:0.25rem;">';
-      for (const [key, label] of Object.entries(labelsMap)) {
-        const val = contenido[key];
-        if (val !== undefined) res += `<div style="display:flex;justify-content:space-between;font-size:0.8rem;padding:0.15rem 0.3rem;background:#f8fafc;border-radius:0.3rem;"><span>${label}</span><span style="font-weight:600;">${val}</span></div>`;
-      }
-      return res + '</div>';
-    }
-
     if (moduloId === 'M07') {
-      const labelsMap = { politico: 'Político', economico: 'Económico', social: 'Social', tecnologico: 'Tecnológico', ambiental: 'Ambiental' };
-      let res = '<strong>Análisis PEST</strong><div style="margin-top:0.3rem;display:flex;flex-direction:column;gap:0.25rem;">';
-      for (const [key, label] of Object.entries(labelsMap)) {
-        const val = contenido[key];
-        if (val !== undefined) res += `<div style="display:flex;justify-content:space-between;font-size:0.8rem;padding:0.15rem 0.3rem;background:#f8fafc;border-radius:0.3rem;"><span>${label}</span><span style="font-weight:600;">${val}</span></div>`;
-      }
+      const labelsMap = { rivalidad: 'Rivalidad', nuevosEntrantes: 'Nuevos entrantes', poderClientes: 'Poder clientes', poderProveedores: 'Poder proveedores', sustitutos: 'Sustitutos' };
+      const entries = Object.entries(labelsMap).filter(([key]) => contenido?.[key] !== undefined);
+      if (entries.length === 0) return SIN_DATOS;
+      let res = '<strong style="color:#2563eb;">5 Fuerzas de Porter</strong><div style="margin-top:0.3rem;display:flex;flex-direction:column;gap:0.25rem;">';
+      entries.forEach(([key, label]) => {
+        res += `<div style="display:flex;justify-content:space-between;font-size:0.8rem;padding:0.15rem 0.3rem;background:#f8fafc;border-radius:0.3rem;"><span>${label}</span><span style="font-weight:600;">${contenido[key]}</span></div>`;
+      });
       return res + '</div>';
     }
 
     if (moduloId === 'M08') {
-      const { data: foda } = await supabaseClient.from('foda').select('tipo, descripcion').eq('plan_id', planId).limit(50);
-      if (!foda || foda.length === 0) return '(Sin Matriz FODA registrada)';
+      const labelsMap = { politico: 'Político', economico: 'Económico', social: 'Social', tecnologico: 'Tecnológico', ambiental: 'Ambiental' };
+      const entries = Object.entries(labelsMap).filter(([key]) => contenido?.[key] !== undefined);
+      if (entries.length === 0) return SIN_DATOS;
+      let res = '<strong style="color:#2563eb;">Análisis PEST</strong><div style="margin-top:0.3rem;display:flex;flex-direction:column;gap:0.25rem;">';
+      entries.forEach(([key, label]) => {
+        res += `<div style="display:flex;justify-content:space-between;font-size:0.8rem;padding:0.15rem 0.3rem;background:#f8fafc;border-radius:0.3rem;"><span>${label}</span><span style="font-weight:600;">${contenido[key]}</span></div>`;
+      });
+      return res + '</div>';
+    }
+
+    if (moduloId === 'M09') {
+      const { data: foda } = await supabaseClient.from('foda').select('tipo, descripcion').eq('plan_id', planId);
+      if (!foda || foda.length === 0) return SIN_DATOS;
       const grupos = { fortaleza: [], debilidad: [], oportunidad: [], amenaza: [] };
       foda.forEach(f => { if (grupos[f.tipo]) grupos[f.tipo].push(f.descripcion); });
       const colores = { fortaleza: '#059669', debilidad: '#dc2626', oportunidad: '#2563eb', amenaza: '#d97706' };
       const labels = { fortaleza: 'Fortalezas', debilidad: 'Debilidades', oportunidad: 'Oportunidades', amenaza: 'Amenazas' };
-      let res = `<strong>Matriz FODA — ${foda.length} item(s)</strong><div style="margin-top:0.3rem;display:grid;grid-template-columns:1fr 1fr;gap:0.3rem;">`;
+      let res = `<strong style="color:#2563eb;">Matriz FODA — ${foda.length} item(s)</strong><div style="margin-top:0.3rem;display:grid;grid-template-columns:1fr 1fr;gap:0.3rem;">`;
       for (const [tipo, items] of Object.entries(grupos)) {
         if (items.length > 0) {
           res += `<div style="background:${colores[tipo]}08;border-left:3px solid ${colores[tipo]};padding:0.3rem 0.5rem;border-radius:0.4rem;">
@@ -797,8 +857,7 @@ async function generarResumenModulo(moduloId, contenido, planId) {
       return res + '</div>';
     }
 
-    if (moduloId === 'M09') {
-      // Intentar desde plan_contenido primero, luego came table
+    if (moduloId === 'M10') {
       let items = [];
       if (contenido && typeof contenido === 'object') {
         for (const [cat, desc] of Object.entries(contenido)) {
@@ -808,13 +867,13 @@ async function generarResumenModulo(moduloId, contenido, planId) {
         }
       }
       if (items.length === 0) {
-        const { data: cameRows } = await supabaseClient.from('came').select('categoria, descripcion').eq('plan_id', planId).limit(30);
+        const { data: cameRows } = await supabaseClient.from('came').select('categoria, descripcion').eq('plan_id', planId);
         if (cameRows) items = cameRows;
       }
-      if (items.length === 0) return '(Sin Matriz CAME registrada)';
+      if (items.length === 0) return SIN_DATOS;
       const catLabels = { corregir: 'Corregir', afrontar: 'Afrontar', mantener: 'Mantener', explotar: 'Explotar' };
       const catColors = { corregir: '#dc2626', afrontar: '#d97706', mantener: '#2563eb', explotar: '#059669' };
-      let res = `<strong>Matriz CAME — ${items.length} estrategia(s)</strong><div style="margin-top:0.3rem;display:flex;flex-direction:column;gap:0.3rem;">`;
+      let res = `<strong style="color:#2563eb;">Matriz CAME — ${items.length} estrategia(s)</strong><div style="margin-top:0.3rem;display:flex;flex-direction:column;gap:0.3rem;">`;
       items.forEach(it => {
         const label = catLabels[it.categoria] || it.categoria;
         const color = catColors[it.categoria] || '#64748b';
@@ -826,10 +885,9 @@ async function generarResumenModulo(moduloId, contenido, planId) {
       return res + '</div>';
     }
 
-    // Fallback genérico
     if (typeof contenido === 'object' && contenido !== null) {
       const keys = Object.keys(contenido);
-      if (keys.length === 0) return '(Sin contenido)';
+      if (keys.length === 0) return SIN_DATOS;
       let res = '<ul style="margin:0;padding:0 0 0 1.2rem;">';
       for (const key of keys.slice(0, 8)) {
         const val = typeof contenido[key] === 'object' ? JSON.stringify(contenido[key]) : contenido[key];
@@ -839,10 +897,10 @@ async function generarResumenModulo(moduloId, contenido, planId) {
       return res + '</ul>';
     }
 
-    return typeof contenido === 'string' ? contenido : JSON.stringify(contenido, null, 2);
+    return tieneContenido(contenido) ? String(contenido) : SIN_DATOS;
   } catch (e) {
     console.error('Error generando resumen para', moduloId, e);
-    return '(Error al generar resumen)';
+    return SIN_DATOS;
   }
 }
 
@@ -857,8 +915,17 @@ async function leerModulosInlineGenerados(planId) {
   const modulosRaw = modulosRes.data || [];
   const contenidos = contenidosRes.data || [];
 
-  const modulos = (modulosRaw || []).filter(m => m.id !== 'M01' && m.id !== 'M02');
+  const modulos = (modulosRaw || []);
   const contMap = Object.fromEntries(contenidos?.map(c => [c.modulo_id, c]) || {});
+
+  if (!cachedM01) {
+    const [empresaRes, globalRes] = await Promise.all([
+      supabaseClient.from('empresa').select('*').eq('id', 1).single(),
+      supabaseClient.from('empresa_contenido').select('*').eq('id', 1).single()
+    ]);
+    cachedM01 = { empresa: empresaRes.data, contenido: globalRes.data };
+  }
+  const global = cachedM01?.contenido || {};
 
   document.getElementById('planModulosTitulo').innerText = `Módulos del Plan: ${plan?.nombre || '#' + planId}`;
 
@@ -866,17 +933,19 @@ async function leerModulosInlineGenerados(planId) {
   lista.innerHTML = '';
   for (const m of modulos) {
     const c = contMap[m.id];
-    const isOk = c?.completado;
-    const resumen = await generarResumenModulo(m.id, c?.contenido, planId);
+    let isOk = c?.completado;
+    if (['M01', 'M02', 'M03'].includes(m.id)) {
+      if (m.id === 'M01') isOk = !!global.mision?.trim();
+      else if (m.id === 'M02') isOk = !!global.vision?.trim();
+      else if (m.id === 'M03') isOk = Array.isArray(global.valores) && global.valores.length > 0;
+    }
     const card = document.createElement('div');
     card.className = 'modulo-card';
     card.innerHTML = `
-      <div class="modulo-card-header" onclick="this.parentElement.classList.toggle('modulo-expandido')">
+      <div class="modulo-card-header" style="cursor:default;">
         <span><strong>${m.id}</strong> ${m.nombre}</span>
         <span class="mod-chip ${isOk ? 'mod-ok' : 'mod-pend'}">${isOk ? 'Completado' : 'Pendiente'}</span>
-        <i class="bi bi-chevron-down"></i>
-      </div>
-      <div class="modulo-card-body">${resumen}</div>`;
+      </div>`;
     lista.appendChild(card);
   }
 
@@ -896,13 +965,10 @@ async function verificarPlanVacio(planId) {
   const checks = tables.map(t =>
     supabaseClient.from(t).select('id', { count: 'exact', head: true }).eq('plan_id', planId)
   );
-  // plan_contenido excluyendo M01, M02
-  const { count: totalPC } = await supabaseClient.from('plan_contenido').select('id', { count: 'exact', head: true }).eq('plan_id', planId);
-  const { count: exclPC } = await supabaseClient.from('plan_contenido').select('id', { count: 'exact', head: true }).eq('plan_id', planId).in('modulo_id', ['M01', 'M02']);
-  const planContenidoCount = (totalPC || 0) - (exclPC || 0);
+  const { count: planContenidoCount } = await supabaseClient.from('plan_contenido').select('id', { count: 'exact', head: true }).eq('plan_id', planId);
 
   const results = await Promise.all(checks);
-  const allEmpty = results.every(r => (r.count || 0) === 0) && planContenidoCount === 0;
+  const allEmpty = results.every(r => (r.count || 0) === 0) && (planContenidoCount || 0) === 0;
   return allEmpty;
 }
 
@@ -1271,10 +1337,16 @@ window.descargarReporte = async function(tipo) {
   let titulo = '', htmlContenido = '';
   if (tipo === 'resumen') {
     titulo = `Resumen Ejecutivo - ${planNombre}`;
-    const { data: m01 } = await supabaseClient.from('plan_contenido').select('contenido').eq('plan_id', selectedReportPlanId).eq('modulo_id','M01').single();
-    const info = m01?.contenido || {};
+    if (!cachedM01) {
+      const [empresaRes, globalRes] = await Promise.all([
+        supabaseClient.from('empresa').select('*').eq('id', 1).single(),
+        supabaseClient.from('empresa_contenido').select('*').eq('id', 1).single()
+      ]);
+      cachedM01 = { empresa: empresaRes.data, contenido: globalRes.data };
+    }
+    const infoGlobal = cachedM01?.contenido || {};
     const { data: foo } = await supabaseClient.from('foda').select('tipo,descripcion').eq('plan_id', selectedReportPlanId).limit(20);
-    htmlContenido = `<h2 style="color:#334155;">${planNombre} (${plan?.anio})</h2><h3 style="color:#2563eb;">Misión</h3><p>${info.mision || '—'}</p><h3 style="color:#2563eb;">Visión</h3><p>${info.vision || '—'}</p><h3 style="color:#2563eb;">FODA</h3>${(foo||[]).map(f=>`<p><strong>${f.tipo}:</strong> ${f.descripcion}</p>`).join('')}`;
+    htmlContenido = `<h2 style="color:#334155;">${planNombre} (${plan?.anio})</h2><h3 style="color:#2563eb;">Misión</h3><p>${infoGlobal.mision || '—'}</p><h3 style="color:#2563eb;">Visión</h3><p>${infoGlobal.vision || '—'}</p><h3 style="color:#2563eb;">FODA</h3>${(foo||[]).map(f=>`<p><strong>${f.tipo}:</strong> ${f.descripcion}</p>`).join('')}`;
   } else if (tipo === 'kpis') {
     titulo = `Avance de KPIs - ${planNombre}`;
     const { data: kpis } = await supabaseClient.from('kpis').select('*').eq('plan_id', selectedReportPlanId);
@@ -1338,40 +1410,349 @@ window.descargarAvanceGeneral = async function() {
 
 window.descargarPlanCompleto = async function(planId) {
   if (!planId) return;
-  const { data: plan } = await supabaseClient.from('planes').select('nombre, anio, descripcion, estado').eq('id', planId).single();
+
+  // Datos generales de la empresa + plan seleccionado
+  const [{ data: empresa }, { data: globalContenido }, { data: plan }] = await Promise.all([
+    supabaseClient.from('empresa').select('nombre').eq('id', 1).single(),
+    supabaseClient.from('empresa_contenido').select('mision, vision, valores').eq('id', 1).single(),
+    supabaseClient.from('planes').select('nombre, anio, descripcion, estado').eq('id', planId).single()
+  ]);
   if (!plan) { showToast('Plan no encontrado.', 'error'); return; }
-  const planNombre = plan.nombre;
 
-  const { data: modulos } = await supabaseClient.from('modulos').select('*').order('orden');
-  const { data: contenidos } = await supabaseClient.from('plan_contenido').select('modulo_id, completado, contenido').eq('plan_id', planId);
-  const { data: kpisAll } = await supabaseClient.from('kpis').select('*').eq('plan_id', planId);
-  const { data: proysAll } = await supabaseClient.from('proyectos').select('*').eq('plan_id', planId);
-  const { data: bcgAll } = await supabaseClient.from('matriz_bcg').select('datos_uen').eq('plan_id', planId).single();
-  const { data: fodaAll } = await supabaseClient.from('foda').select('*').eq('plan_id', planId).limit(50);
+  const [
+    modulosRes, contenidosRes, objetivosRes,
+    cadenaFodaRes, bcgRes, bcgFodaRes, porterRes, pestRes,
+    fodaRes, cameRes
+  ] = await Promise.all([
+    supabaseClient.from('modulos').select('*').order('orden'),
+    supabaseClient.from('plan_contenido').select('modulo_id, completado, contenido').eq('plan_id', planId),
+    supabaseClient.from('objetivos_generales').select('*').eq('plan_id', planId).order('orden'),
+    supabaseClient.from('cadena_valor_foda').select('*').eq('plan_id', planId),
+    supabaseClient.from('matriz_bcg').select('*').eq('plan_id', planId).maybeSingle(),
+    supabaseClient.from('bcg_foda').select('*').eq('plan_id', planId),
+    supabaseClient.from('porter_oa').select('*').eq('plan_id', planId),
+    supabaseClient.from('pest_oa').select('*').eq('plan_id', planId),
+    supabaseClient.from('foda').select('*').eq('plan_id', planId),
+    supabaseClient.from('came').select('*').eq('plan_id', planId)
+  ]);
 
-  const compMap = Object.fromEntries((contenidos || []).map(c => [c.modulo_id, c.completado]));
-  const completados = Object.values(compMap).filter(Boolean).length;
-  const pct = modulos?.length ? Math.round((completados / modulos.length) * 100) : 0;
+  const modulos = modulosRes.data || [];
+  const contenidos = contenidosRes.data || [];
+  const contMap = Object.fromEntries(contenidos.map(c => [c.modulo_id, c]));
+  const objetivos = objetivosRes.data || [];
+  // Query específicos por objetivo_general_id (no por plan_id)
+  const generalIds = objetivos.map(og => og.id);
+  let especificos = [];
+  if (generalIds.length) {
+    const { data: especData } = await supabaseClient
+      .from('objetivos_especificos')
+      .select('*')
+      .in('objetivo_general_id', generalIds)
+      .order('orden');
+    especificos = especData || [];
+  }
+  const especByObj = {};
+  especificos.forEach(e => {
+    const key = String(e.objetivo_general_id);
+    if (!especByObj[key]) especByObj[key] = [];
+    especByObj[key].push(e);
+  });
+  const cadenaFoda = cadenaFodaRes.data || [];
+  const bcgData = bcgRes.data || {};
+  const bcgUens = Array.isArray(bcgData.datos_uen) ? bcgData.datos_uen : [];
+  const bcgFoda = bcgFodaRes.data || [];
+  const porterOA = porterRes.data || [];
+  const pestOA = pestRes.data || [];
+  const foda = fodaRes.data || [];
+  const cameItems = cameRes.data || [];
+  const pestContenido = contMap['M08']?.contenido || {};
 
-  let html = `<h1 style="color:#0f172a;">${planNombre} (${plan?.anio || ''})</h1>
-    <p style="color:#64748b;">Estado: ${plan?.estado || '—'}${plan?.descripcion ? ' · ' + plan.descripcion : ''}</p>
-    <h2 style="color:#2563eb;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">Módulos: ${completados}/${modulos.length} (${pct}%)</h2>
-    <table style="width:100%;border-collapse:collapse;font-size:12px;">${(modulos||[]).map(m => `<tr><td style="padding:4px;">${m.id} ${m.nombre}</td><td style="text-align:right;padding:4px;">${compMap[m.id] ? 'Completado' : 'Pendiente'}</td></tr>`).join('')}</table>
-    <h2 style="color:#2563eb;border-bottom:2px solid #e2e8f0;padding-bottom:4px;margin-top:1rem;">KPIs (${kpisAll?.length || 0})</h2>${(kpisAll||[]).map(k => `<p><strong>${k.nombre}:</strong> ${k.valor_actual || '—'}/${k.meta || '—'} ${k.unidad||''}</p>`).join('') || '<p style="color:#94a3b8;">Sin KPIs registrados.</p>'}
-    <h2 style="color:#2563eb;border-bottom:2px solid #e2e8f0;padding-bottom:4px;margin-top:1rem;">Proyectos (${proysAll?.length || 0})</h2>${(proysAll||[]).map(p => `<p>${p.nombre}: ${p.avance||0}% (${p.estado})</p>`).join('') || '<p style="color:#94a3b8;">Sin proyectos registrados.</p>'}
-    <h2 style="color:#2563eb;border-bottom:2px solid #e2e8f0;padding-bottom:4px;margin-top:1rem;">FODA (${fodaAll?.length || 0} items)</h2>${(fodaAll||[]).map(f => `<p><strong>${f.tipo}:</strong> ${f.descripcion}</p>`).join('') || '<p style="color:#94a3b8;">Sin FODA registrado.</p>'}`;
-  if (bcgAll?.datos_uen) {
-    const uens = Array.isArray(bcgAll.datos_uen) ? bcgAll.datos_uen : [];
-    html += `<h2 style="color:#2563eb;border-bottom:2px solid #e2e8f0;padding-bottom:4px;margin-top:1rem;">BCG (${uens.length} UEN)</h2>${uens.map((u,i) => `<p>${i+1}. ${u.nombre || 'UEN '+(i+1)}: ${u.cuadrante || '—'}</p>`).join('')}`;
+  const fechaHoy = new Date().toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' });
+  const empresaNombre = empresa?.nombre || 'ContaPerú S.A.C.';
+  const planNombre = plan.nombre || 'Planeamiento Estratégico';
+  const contenidoGlobal = globalContenido || {};
+  const valoresGlobal = Array.isArray(contenidoGlobal.valores) && contenidoGlobal.valores.length ? contenidoGlobal.valores : null;
+
+  const lista = items => items.length ? `<ul style="margin:0.3rem 0 0 1.2rem;padding:0;color:#334155;line-height:1.6;">${items.map(i => `<li style="margin-bottom:0.35rem;">${i.descripcion || i}</li>`).join('')}</ul>` : '<p class="pdf-empty">No hay datos registrados.</p>';
+  const subtitle = (title, content) => `<div class="pdf-subsection"><h4>${title}</h4>${content}</div>`;
+
+  // Gráfico BCG (burbujas)
+  function bcgChartHTML(uens) {
+    if (!uens.length) return '';
+    const cw = 350, ch = 300, labelW = 24, plotL = 0, plotT = 20, plotR = 20, plotB = 40;
+    const pw = cw - plotL - plotR, ph = ch - plotT - plotB;
+    const prms = uens.map(u => parseFloat(u.prm) || 0);
+    const tcms = uens.map(u => parseFloat(u.tcm) || 0);
+    const minPrm = Math.min(0, ...prms), maxPrm = Math.max(1, ...prms);
+    const minTcm = Math.min(0, ...tcms), maxTcm = Math.max(10, ...tcms);
+    const padX = (maxPrm - minPrm) * 0.1 || 1, padY = (maxTcm - minTcm) * 0.1 || 1;
+    const xMin = minPrm - padX, xMax = maxPrm + padX;
+    const yMin = minTcm - padY, yMax = maxTcm + padY;
+    const toX = prm => plotL + ((prm - xMin) / (xMax - xMin)) * pw;
+    const toY = tcm => ch - plotB - ((tcm - yMin) / (yMax - yMin)) * ph;
+    const colorMap = { 'Estrella': '#2563eb', 'Vaca': '#059669', 'Interrogante': '#d97706', 'Incógnita': '#d97706', 'Perro': '#dc2626' };
+    let dots = '', legend = '';
+    uens.forEach((u, idx) => {
+      const x = toX(parseFloat(u.prm) || 0);
+      const y = toY(parseFloat(u.tcm) || 0);
+      const r = Math.max(14, Math.min(30, 14 + ((parseFloat(u.ventas_empresa) || 0) / 2000)));
+      dots += `<div style="position:absolute;left:${x}px;top:${y}px;transform:translate(-50%,-50%);width:${r}px;height:${r}px;border-radius:50%;background:${colorMap[u.cuadrante] || '#64748b'};border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.2);" title="${u.nombre}"></div>`;
+      legend += `<div style="display:flex;align-items:center;gap:0.3rem;font-size:11px;color:#334155;margin-right:0.8rem;"><span style="width:10px;height:10px;border-radius:50%;background:${colorMap[u.cuadrante] || '#64748b'};"></span>${idx + 1}. ${u.nombre}</div>`;
+    });
+    return `
+      <div style="margin:1rem auto 0.5rem;display:flex;align-items:stretch;width:${cw + labelW}px;height:${ch}px;font-size:11px;">
+        <div style="width:${labelW}px;position:relative;">
+          <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-90deg);white-space:nowrap;color:#64748b;font-size:10px;text-align:center;transform-origin:center;">Tasa de Crecimiento del Mercado (TCM %)</div>
+        </div>
+        <div style="flex:1;position:relative;">
+          <div style="position:absolute;left:${plotL}px;top:${plotT}px;right:${plotR}px;bottom:${plotB}px;background:#f8fafc;border:1px solid #e2e8f0;">
+            <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:#cbd5e1;"></div>
+            <div style="position:absolute;top:50%;left:0;right:0;height:1px;background:#cbd5e1;"></div>
+            <div style="position:absolute;left:3px;top:3px;color:#94a3b8;font-size:9px;">Estrella</div>
+            <div style="position:absolute;right:3px;top:3px;color:#94a3b8;font-size:9px;">Incógnita</div>
+            <div style="position:absolute;left:3px;bottom:3px;color:#94a3b8;font-size:9px;">Vaca</div>
+            <div style="position:absolute;right:3px;bottom:3px;color:#94a3b8;font-size:9px;">Perro</div>
+            ${dots}
+          </div>
+          <div style="position:absolute;left:0;right:0;bottom:5px;text-align:center;color:#64748b;font-size:10px;">Participación Relativa en el Mercado (PRM)</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:0.4rem;justify-content:center;margin-bottom:1rem;">${legend}</div>`;
   }
 
+  // Gráfico PEST (barras)
+  function pestChartHTML(impactos) {
+    const factors = [];
+    for (const [key, val] of Object.entries(impactos)) {
+      if (key === 'puntajes') continue;
+      const num = parseFloat(val);
+      if (!isNaN(num) && val !== null) factors.push({ label: key, value: num });
+    }
+    if (!factors.length) return '';
+    const maxVal = Math.max(1, ...factors.map(f => f.value));
+    let bars = '';
+    factors.forEach(f => {
+      const pct = (f.value / maxVal) * 100;
+      const label = f.label.charAt(0).toUpperCase() + f.label.slice(1);
+      bars += `<div style="display:flex;align-items:center;margin-bottom:8px;"><div style="width:130px;font-size:12px;color:#334155;">${label}</div><div style="flex:1;background:#f1f5f9;border-radius:4px;height:22px;overflow:hidden;"><div style="width:${pct}%;background:#2563eb;height:100%;border-radius:4px;"></div></div><div style="width:50px;text-align:right;font-size:12px;color:#64748b;padding-left:8px;">${f.value.toFixed(2)}</div></div>`;
+    });
+    return `<div style="margin:1rem 0;max-width:500px;">${bars}</div>`;
+  }
+
+  // Gráfico FODA (barras por tipo)
+  function fodaChartHTML(items) {
+    if (!items.length) return '';
+    const grupos = { fortaleza: 0, debilidad: 0, oportunidad: 0, amenaza: 0 };
+    items.forEach(i => { if (grupos[i.tipo] !== undefined) grupos[i.tipo]++; });
+    const labels = { fortaleza: 'Fortalezas', debilidad: 'Debilidades', oportunidad: 'Oportunidades', amenaza: 'Amenazas' };
+    const colors = { fortaleza: '#059669', debilidad: '#dc2626', oportunidad: '#2563eb', amenaza: '#d97706' };
+    const maxCount = Math.max(1, ...Object.values(grupos));
+    let bars = '';
+    Object.entries(grupos).forEach(([tipo, count]) => {
+      const pct = (count / maxCount) * 100;
+      bars += `<div style="display:flex;align-items:center;margin-bottom:8px;"><div style="width:110px;font-size:12px;color:#334155;">${labels[tipo]}</div><div style="flex:1;background:#f1f5f9;border-radius:4px;height:22px;overflow:hidden;"><div style="width:${pct}%;background:${colors[tipo]};height:100%;border-radius:4px;"></div></div><div style="width:35px;text-align:right;font-size:12px;color:#64748b;padding-left:8px;">${count}</div></div>`;
+    });
+    return `<div style="margin:1rem 0;max-width:500px;">${bars}</div>`;
+  }
+
+  // FODA cruzada (puntajes desde plan_contenido M08 o M09)
+  const dafoScores = contMap['M08']?.contenido?.puntajes || contMap['M09']?.contenido?.puntajes || null;
+  const dafoRows = dafoScores ? [
+    { rel: 'FO', label: 'Fortalezas + Oportunidades', tipo: 'Estrategia Ofensiva', punt: dafoScores.FO, desc: 'Deberá adoptar estrategias de crecimiento', color: '#059669' },
+    { rel: 'AF', label: 'Amenazas + Fortalezas', tipo: 'Estrategia Defensiva', punt: dafoScores.AF, desc: 'La empresa está preparada para enfrentarse a las amenazas', color: '#2563eb' },
+    { rel: 'AD', label: 'Amenazas + Debilidades', tipo: 'Estrategia de Supervivencia', punt: dafoScores.AD, desc: 'Se enfrenta a amenazas externas sin las fortalezas necesarias', color: '#d97706' },
+    { rel: 'OD', label: 'Oportunidades + Debilidades', tipo: 'Estrategia de Reorientación', punt: dafoScores.OD, desc: 'La empresa no puede aprovechar las oportunidades por falta de preparación', color: '#dc2626' }
+  ] : [];
+
+  const sections = [];
+  let secIdx = 0;
+
+  function addSection(name, html) {
+    secIdx++;
+    sections.push({ num: secIdx, name, html: `<div class="pdf-module-section">${html}</div>` });
+  }
+
+  function addSubSection(secNum, subNum, title, content) {
+    sections.push({ num: `${secNum}.${subNum}`, name: title, html: `<div class="pdf-subsection pdf-subsection-level2">${content}</div>` });
+  }
+
+  // M04 Objetivos
+  let objetivosHtml = '';
+  if (!objetivos.length) {
+    objetivosHtml = '<p class="pdf-empty">No hay datos registrados.</p>';
+  } else {
+    objetivosHtml = '<ul style="margin:0;padding:0 0 0 1.2rem;color:#334155;line-height:1.6;">';
+    objetivos.forEach(og => {
+      const especs = especByObj[String(og.id)] || [];
+      objetivosHtml += `<li style="margin-bottom:0.8rem;"><strong>${og.descripcion}</strong>`;
+      if (especs.length) {
+        objetivosHtml += `<ul style="margin:0.3rem 0 0 1rem;padding:0;color:#475569;font-size:0.92em;">${especs.map(e => `<li style="margin-bottom:0.2rem;">${e.descripcion}</li>`).join('')}</ul>`;
+      }
+      objetivosHtml += `</li>`;
+    });
+    objetivosHtml += '</ul>';
+  }
+  addSection('Objetivos específicos y generales', objetivosHtml);
+
+  // M05 Cadena de valor
+  addSection('Cadena de valor', '');
+  const cadFortalezas = cadenaFoda.filter(i => i.tipo === 'fortaleza');
+  const cadDebilidades = cadenaFoda.filter(i => i.tipo === 'debilidad');
+  addSubSection(secIdx, 1, 'Fortalezas', lista(cadFortalezas));
+  addSubSection(secIdx, 2, 'Debilidades', lista(cadDebilidades));
+
+  // M06 Matriz BCG
+  addSection('Matriz BCG', '');
+  const bcgFortalezas = bcgFoda.filter(i => i.tipo === 'fortaleza');
+  const bcgDebilidades = bcgFoda.filter(i => i.tipo === 'debilidad');
+  const bcgChartHtml = bcgChartHTML(bcgUens);
+  addSubSection(secIdx, 1, 'Gráfico de burbujas BCG', bcgChartHtml || '<p class="pdf-empty">No hay datos registrados.</p>');
+  addSubSection(secIdx, 2, 'Fortalezas', lista(bcgFortalezas));
+  addSubSection(secIdx, 3, 'Debilidades', lista(bcgDebilidades));
+
+  // M07 Porter
+  addSection('Porter', '');
+  const porterOportunidades = porterOA.filter(i => i.tipo === 'oportunidad');
+  const porterAmenazas = porterOA.filter(i => i.tipo === 'amenaza');
+  addSubSection(secIdx, 1, 'Oportunidades', lista(porterOportunidades));
+  addSubSection(secIdx, 2, 'Amenazas', lista(porterAmenazas));
+
+  // M08 PEST
+  addSection('PEST', '');
+  const pestOportunidades = pestOA.filter(i => i.tipo === 'oportunidad');
+  const pestAmenazas = pestOA.filter(i => i.tipo === 'amenaza');
+  const pestChartHtml = pestChartHTML(pestContenido);
+  addSubSection(secIdx, 1, 'Gráfico de impacto normalizado', pestChartHtml || '<p class="pdf-empty">No hay datos registrados.</p>');
+  addSubSection(secIdx, 2, 'Oportunidades', lista(pestOportunidades));
+  addSubSection(secIdx, 3, 'Amenazas', lista(pestAmenazas));
+
+  // M09 FODA
+  addSection('FODA', '');
+  const fodaCruceHtml = dafoRows.length ? `
+    <table class="pdf-table">
+      <thead><tr><th>Cruce</th><th>Estrategia</th><th>Puntuación</th><th>Interpretación</th></tr></thead>
+      <tbody>${dafoRows.map(r => `<tr>
+        <td><strong>${r.rel}</strong></td>
+        <td>${r.label}</td>
+        <td>${typeof r.punt === 'number' ? r.punt + '%' : '—'}</td>
+        <td style="font-size:0.9em;">${r.tipo}. ${r.desc}</td>
+      </tr>`).join('')}</tbody>
+    </table>` : '<p class="pdf-empty">No hay datos registrados.</p>';
+  addSubSection(secIdx, 1, 'Tabla de resultados', fodaCruceHtml);
+
+  // M10 CAME
+  addSection('Matriz CAME', '');
+  const cameCorregir = cameItems.filter(i => i.categoria === 'corregir');
+  const cameAfrontar = cameItems.filter(i => i.categoria === 'afrontar');
+  const cameMantener = cameItems.filter(i => i.categoria === 'mantener');
+  const cameExplotar = cameItems.filter(i => i.categoria === 'explotar');
+  addSubSection(secIdx, 1, 'Corregir debilidades', lista(cameCorregir));
+  addSubSection(secIdx, 2, 'Afrontar amenazas', lista(cameAfrontar));
+  addSubSection(secIdx, 3, 'Mantener fortalezas', lista(cameMantener));
+  addSubSection(secIdx, 4, 'Explorar oportunidades', lista(cameExplotar));
+
+  const coverPage = `
+    <div class="pdf-page pdf-cover">
+      <div class="pdf-cover-content">
+        <div class="pdf-cover-empresa">${empresaNombre}</div>
+        <div class="pdf-cover-titulo">${planNombre}</div>
+        <div class="pdf-cover-sub">Planeamiento Estratégico ${plan.anio || ''}</div>
+        <div class="pdf-cover-fecha">${fechaHoy}</div>
+      </div>
+    </div>`;
+
+  const misionVisionPage = `
+    <div class="pdf-page pdf-mision-vision">
+      <h2 class="pdf-section-title">Misión, Visión y Valores</h2>
+      <div class="pdf-block">
+        <h3>Misión</h3>
+        ${contenidoGlobal.mision ? `<p>${contenidoGlobal.mision}</p>` : '<p class="pdf-empty">No hay datos registrados actualmente.</p>'}
+      </div>
+      <div class="pdf-block">
+        <h3>Visión</h3>
+        ${contenidoGlobal.vision ? `<p>${contenidoGlobal.vision}</p>` : '<p class="pdf-empty">No hay datos registrados actualmente.</p>'}
+      </div>
+      <div class="pdf-block">
+        <h3>Valores corporativos</h3>
+        ${valoresGlobal ? `<ul>${valoresGlobal.map(v => `<li><strong>${v.titulo || v}</strong>${v.descripcion ? `<br><span>${v.descripcion}</span>` : ''}</li>`).join('')}</ul>` : '<p class="pdf-empty">No hay datos registrados actualmente.</p>'}
+      </div>
+    </div>`;
+
+  const modulesPage = `<div class="pdf-page pdf-modules-page">${sections.map(s => {
+    const isMain = typeof s.num === 'number';
+    return isMain
+      ? `<h2 class="pdf-section-title">${s.num}. ${s.name}</h2>${s.html}`
+      : `<h3 class="pdf-subsection-title">${s.num} ${s.name}</h3>${s.html}`;
+  }).join('')}</div>`;
+
   const wrapper = document.createElement('div');
-  wrapper.innerHTML = `<div style="font-family:Inter,sans-serif;padding:20px;background:white;">${html}<p style="color:#94a3b8;font-size:10px;margin-top:20px;border-top:1px solid #e2e8f0;padding-top:10px;">Generado por ContaPerú PETI · ${new Date().toLocaleString()}</p></div>`;
+  wrapper.innerHTML = `
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+      .pdf-doc { font-family: 'Inter', sans-serif; color: #0f172a; }
+      .pdf-page { padding: 30px 40px; box-sizing: border-box; }
+      .pdf-cover {
+        page-break-after: always;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        background: #ffffff;
+        padding: 60px;
+      }
+      .pdf-cover-content { max-width: 75%; }
+      .pdf-cover-empresa { font-size: 26px; color: #64748b; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 30px; }
+      .pdf-cover-titulo { font-size: 52px; font-weight: 700; color: #0f172a; margin-bottom: 16px; line-height: 1.1; }
+      .pdf-cover-sub { font-size: 22px; color: #334155; margin-bottom: 40px; }
+      .pdf-cover-fecha { font-size: 18px; color: #64748b; }
+      .pdf-mision-vision { page-break-after: always; }
+      .pdf-modules-page { page-break-before: auto; }
+      .pdf-section-title { font-size: 20px; color: #2563eb; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin: 28px 0 16px 0; }
+      .pdf-subsection-title { font-size: 14px; color: #1e293b; font-weight: 600; margin: 14px 0 8px 24px; }
+      .pdf-module-section { margin-bottom: 20px; }
+      .pdf-subsection { margin-bottom: 14px; page-break-inside: avoid; }
+      .pdf-subsection-level2 { margin-left: 48px; }
+      .pdf-subsection h4 { font-size: 12px; color: #1e293b; margin: 0 0 5px 0; text-transform: uppercase; letter-spacing: 0.5px; }
+      .pdf-block { margin-bottom: 18px; }
+      .pdf-block h3 { font-size: 13px; color: #1e293b; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+      .pdf-block p { color: #334155; line-height: 1.6; margin: 0; }
+      .pdf-block ul { margin: 6px 0 0 18px; padding: 0; color: #334155; line-height: 1.6; }
+      .pdf-block ul li { margin-bottom: 6px; }
+      .pdf-empty { color: #94a3b8; font-style: italic; }
+      .pdf-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 6px; }
+      .pdf-table th { background: #f8fafc; text-align: left; padding: 6px; border-bottom: 2px solid #e2e8f0; }
+      .pdf-table td { padding: 6px; border-bottom: 1px solid #e2e8f0; }
+    </style>
+    <div class="pdf-doc">
+      ${coverPage}
+      ${misionVisionPage}
+      ${modulesPage}
+    </div>`;
 
   try {
-    const opts = { margin: [10,10,10,10], filename: `${planNombre.replace(/\s+/g,'_')}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, logging: false, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
-    const pdfBlob = await html2pdf().set(opts).from(wrapper).outputPdf('blob');
-    const a = document.createElement('a'); a.href = URL.createObjectURL(pdfBlob); a.download = `${planNombre.replace(/\s+/g,'_')}.pdf`; a.click(); URL.revokeObjectURL(a.href);
+    const pdf = await html2pdf()
+      .set({
+        margin: [15, 15, 22, 15],
+        filename: `${planNombre.replace(/\s+/g,'_')}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, logging: false, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      })
+      .from(wrapper)
+      .toPdf()
+      .get('pdf');
+
+    const totalPages = pdf.internal.getNumberOfPages();
+    for (let i = 2; i <= totalPages; i++) {
+      pdf.setPage(i);
+      pdf.setFontSize(10);
+      pdf.setTextColor('#64748b');
+      pdf.text(`Página ${i - 1}`, pdf.internal.pageSize.getWidth() - 15, pdf.internal.pageSize.getHeight() - 10, { align: 'right' });
+    }
+
+    pdf.save(`${planNombre.replace(/\s+/g,'_')}.pdf`);
+    showToast('PDF descargado correctamente.', 'success');
   } catch(e) {
     console.error('Error generando PDF:', e);
     showToast('Error al generar el PDF.', 'error');
@@ -1417,113 +1798,4 @@ async function cargarReportesRecientes() {
     </div>`).join('');
 }
 
-// ==================== ALERTAS ====================
 
-async function cargarAlertasConFiltros() {
-  let query = supabaseClient.from('alertas').select('*, planes!inner(nombre)').order('fecha_creacion', { ascending: false });
-  if (currentTabAlertas === 'critica') query = query.eq('tipo', 'kpi').eq('revisado', false);
-  else if (currentTabAlertas === 'advertencia') query = query.eq('tipo', 'proyecto').eq('revisado', false);
-  else if (currentTabAlertas === 'revisada') query = query.eq('revisado', true);
-
-  const { data } = await query;
-  const container = document.getElementById('alertasListContainer');
-  if (!container) return;
-
-  // Metrics
-  const total = data?.length || 0;
-  const sinRevisar = data?.filter(a => !a.revisado).length || 0;
-  const criticas = data?.filter(a => a.tipo === 'kpi' && !a.revisado).length || 0;
-  const advertencias = data?.filter(a => a.tipo === 'proyecto' && !a.revisado).length || 0;
-  const informativas = data?.filter(a => a.tipo === 'iniciativa' && !a.revisado).length || 0;
-  const hoy = new Date(); hoy.setHours(0,0,0,0);
-  const revisadasHoy = data?.filter(a => a.revisado && a.fecha_revision && new Date(a.fecha_revision) >= hoy).length || 0;
-
-  document.getElementById('aCriticas').innerText = criticas;
-  document.getElementById('aAdvertencias').innerText = advertencias;
-  document.getElementById('aInformativas').innerText = informativas;
-  document.getElementById('aRevisadasHoy').innerText = revisadasHoy;
-  document.getElementById('alertasSubtitle').innerText = `${sinRevisar} sin revisar · Ordenadas por prioridad`;
-
-  // Update alert tabs
-  document.querySelectorAll('#alertasTabs .itab').forEach(tab => {
-    const key = tab.getAttribute('data-tab');
-    let count = 0;
-    if (key === 'todas') count = total;
-    else if (key === 'critica') count = criticas;
-    else if (key === 'advertencia') count = advertencias;
-    else if (key === 'revisada') count = data?.filter(a => a.revisado).length || 0;
-    const labels = { todas: 'Todas', critica: 'Críticas', advertencia: 'Advertencias', revisada: 'Revisadas' };
-    tab.innerText = `${labels[key]} (${count})`;
-  });
-
-  if (!data || data.length === 0) { container.innerHTML = '<div style="text-align:center;color:#94a3b8;padding:1.5rem;">No hay alertas que mostrar</div>'; return; }
-
-  container.innerHTML = data.map(a => {
-    let sevPill = 'pill-gray', sevLabel = 'Info', icoBg = '#E6F1FB', icoColor = '#0C447C', icoClass = 'bi-info-circle';
-    if (a.tipo === 'kpi') { sevPill = 'pill-red'; sevLabel = 'Crítica'; icoBg = '#FCEBEB'; icoColor = '#791F1F'; icoClass = 'bi-graph-down'; }
-    else if (a.tipo === 'proyecto') { sevPill = 'pill-amber'; sevLabel = 'Advertencia'; icoBg = '#FAEEDA'; icoColor = '#633806'; icoClass = 'bi-folder-x'; }
-
-    let acciones = '';
-    if (!a.revisado) {
-      if (a.tipo === 'kpi') acciones = `<button class="btn-small btn-secondary" onclick="verResumenEjecutivo(${a.plan_id})">Ver plan</button><button class="btn-small btn-danger" onclick="abrirModalEscalar(${a.id},${a.plan_id})">Escalar</button><button class="btn-small btn-gray" onclick="marcarAlertaRevisada(${a.id})">Marcar revisada</button>`;
-      else if (a.tipo === 'proyecto') acciones = `<button class="btn-small btn-secondary" onclick="verResumenEjecutivo(${a.plan_id})">Ver plan</button><button class="btn-small btn-gray" onclick="marcarAlertaRevisada(${a.id})">Marcar revisada</button>`;
-      else acciones = `<button class="btn-small btn-primary" onclick="irAAprobar(${a.plan_id})">Ir a revisar</button>`;
-    } else {
-      acciones = `<span style="color:#22c55e;font-size:0.75rem;font-weight:600;"><i class="bi bi-check-circle-fill"></i> Revisada${a.comentario ? ': ' + a.comentario : ''}</span>`;
-    }
-
-    return `
-    <div class="alert-item">
-      <div class="alert-ico" style="background:${icoBg};"><i class="bi ${icoClass}" style="color:${icoColor};"></i></div>
-      <div class="alert-body">
-        <div class="alert-title">${a.descripcion}</div>
-        <div class="alert-desc">Plan: ${a.planes?.nombre || '—'} · ${new Date(a.fecha_creacion).toLocaleString()}</div>
-        <div class="alert-actions">${acciones}</div>
-      </div>
-      <span class="pill ${sevPill}" style="flex-shrink:0;align-self:flex-start;">${sevLabel}</span>
-    </div>`;
-  }).join('');
-}
-
-window.marcarAlertaRevisada = async function(id) {
-  await supabaseClient.from('alertas').update({ revisado: true, revisado_por: currentUser.username, fecha_revision: new Date() }).eq('id', id);
-  await cargarAlertasConFiltros();
-  await actualizarBadges();
-};
-
-// ==================== ESCALAR ====================
-
-function abrirModalEscalar(alertaId, planId) {
-  document.getElementById('escalarPlanId').value = planId;
-  document.getElementById('escalarMotivo').value = '';
-  document.getElementById('escalarAlertaModal').style.display = 'flex';
-  // Guardar el alerta ID en el hidden
-  document.getElementById('escalarPlanId').setAttribute('data-alerta-id', alertaId);
-}
-window.abrirModalEscalar = abrirModalEscalar;
-
-async function confirmarEscalar() {
-  const planId = document.getElementById('escalarPlanId').value;
-  const alertaId = document.getElementById('escalarPlanId').getAttribute('data-alerta-id');
-  const motivo = document.getElementById('escalarMotivo').value.trim();
-
-  const { data: plan } = await supabaseClient.from('planes').select('nombre, creado_por').eq('id', planId).single();
-  if (!plan) { showToast('Plan no encontrado.', 'error'); return; }
-
-  // Marcar alerta original
-  await supabaseClient.from('alertas').update({ revisado: true, revisado_por: currentUser.username, fecha_revision: new Date(), comentario: `Escalado${motivo ? ': ' + motivo : ''}` }).eq('id', alertaId);
-
-  // Crear nueva alerta para el Estratega
-  await supabaseClient.from('alertas').insert({
-    plan_id: planId,
-    tipo: 'escalada',
-    descripcion: `Alerta escalada del Aprobador: "${motivo || 'Se requiere atención urgente del Estratega.'}"`,
-    revisado: false,
-    destinatario_id: plan.creado_por
-  });
-
-  document.getElementById('escalarAlertaModal').style.display = 'none';
-  showToast('Alerta escalada al Estratega.', 'success');
-  await cargarAlertasConFiltros();
-  await actualizarBadges();
-}

@@ -19,7 +19,7 @@
       <a href="#" class="nav-item" data-section="empresa"><i class="bi bi-building"></i><span> Info empresa</span></a>
       <a href="#" class="nav-item" data-section="planes"><i class="bi bi-files"></i><span> Planes generados</span></a>
       <a href="#" class="nav-item" data-section="aprobar"><i class="bi bi-check2-circle"></i><span> Aprobar plan</span><span id="navAprobarBadge" class="nav-badge" style="display:none;">0</span></a>
-      <a href="#" class="nav-item" data-section="alertas"><i class="bi bi-exclamation-triangle"></i><span> Alertas</span><span id="navAlertasBadge" class="nav-badge" style="display:none;">0</span></a>
+      
     </nav>
     <div class="sidebar-footer">
       <button id="logoutBtn" class="logout-button"><i class="bi bi-box-arrow-right"></i><span> Cerrar sesión</span></button>
@@ -40,6 +40,7 @@
           <div class="card"><div class="card-title">TOTAL PLANES</div><div class="card-value" id="totalPlanes">0</div><div class="card-desc">registrados en el sistema</div></div>
           <div class="card"><div class="card-title">PLANES ACTIVOS</div><div class="card-value" id="planesActivos">0</div><div class="card-desc">en funcionamiento</div></div>
           <div class="card"><div class="card-title">EN REVISIÓN</div><div class="card-value" id="planesEnRevision">0</div><div class="card-desc">esperando aprobación</div></div>
+          <div class="card"><div class="card-title">BORRADORES</div><div class="card-value" id="planesBorradores">0</div><div class="card-desc">en desarrollo</div></div>
         </div>
         <h2 style="margin-top: 2rem;">Últimas Actualizaciones de Planes</h2>
         <div class="table-responsive">
@@ -203,24 +204,7 @@
         </div>
       </div>
 
-      <!-- ═══════════ ALERTAS ═══════════ -->
-      <div id="alertas" class="section-content">
-        <h1>Alertas</h1>
-        <p id="alertasSubtitle" style="color:#64748b;margin-bottom:1rem;">Cargando alertas...</p>
-        <div class="metrics-row" id="alertasMetrics">
-          <div class="metric-card"><div class="metric-label">Críticas</div><div class="metric-value" id="aCriticas" style="color:#E24B4A;">0</div><div class="metric-sub">Acción urgente</div></div>
-          <div class="metric-card"><div class="metric-label">Advertencias</div><div class="metric-value" id="aAdvertencias" style="color:#EF9F27;">0</div><div class="metric-sub">Pueden empeorar</div></div>
-          <div class="metric-card"><div class="metric-label">Informativas</div><div class="metric-value" id="aInformativas" style="color:#3730a3;">0</div><div class="metric-sub">Solo lectura</div></div>
-          <div class="metric-card"><div class="metric-label">Revisadas hoy</div><div class="metric-value" id="aRevisadasHoy" style="color:#27500A;">0</div><div class="metric-sub">Esta semana</div></div>
-        </div>
-        <div class="inner-tabs" id="alertasTabs">
-          <button class="itab active" data-tab="todas">Todas</button>
-          <button class="itab" data-tab="critica">Críticas</button>
-          <button class="itab" data-tab="advertencia">Advertencias</button>
-          <button class="itab" data-tab="revisada">Revisadas</button>
-        </div>
-        <div id="alertasListContainer"></div>
-      </div>
+      
     </div>
   </main>
 </div>
@@ -396,20 +380,6 @@
     <div class="modal-buttons">
       <button class="btn-secondary" onclick="document.getElementById('confirmarHabilitarPlanModal').style.display='none'">Cancelar</button>
       <button id="confirmarHabilitarPlanBtn" class="btn-habilitar" onclick="confirmarHabilitarPlan()"><i class="bi bi-check2-circle"></i> Sí, habilitar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Escalar alerta -->
-<div id="escalarAlertaModal" class="modal" style="display:none;">
-  <div class="modal-content">
-    <h3><i class="bi bi-send" style="color:#dc2626;"></i> Escalar al Estratega</h3>
-    <p style="color:#475569;margin:1rem 0 0.5rem;">Motivo del escalamiento:</p>
-    <textarea id="escalarMotivo" rows="3" placeholder="Describa por qué esta alerta se escala al Estratega..." style="width:100%;padding:0.7rem;border-radius:0.75rem;border:1px solid #cbd5e1;font-family:inherit;resize:none;"></textarea>
-    <input type="hidden" id="escalarPlanId">
-    <div class="modal-buttons">
-      <button id="escalarCancelBtn" class="btn-secondary">Cancelar</button>
-      <button id="escalarConfirmBtn" class="btn-danger">Escalar al Estratega</button>
     </div>
   </div>
 </div>

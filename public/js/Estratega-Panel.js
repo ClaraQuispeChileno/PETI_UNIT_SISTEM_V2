@@ -1440,19 +1440,29 @@ function renderFodaTables() {
     ? debilidadesList.join('')
     : '<tr class="empty-state-row"><td colspan="3"><i class="bi bi-check-circle"></i><br>No se registraron debilidades</td></tr>';
   
+  var fortCount = fortalezasList.length;
+  var debCount = debilidadesList.length;
   var addFortDiv = document.getElementById('m04AddFortaleza');
   if (addFortDiv) {
-    addFortDiv.innerHTML = '<div class="foda-add-container" style="display:flex;gap:6px;margin-top:8px;">'
-      + '<input type="text" class="foda-add-input" placeholder="Nueva fortaleza..." style="flex:1;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85em;">'
-      + '<button class="btn-small btn-primary foda-add-btn" data-tipo="fortaleza" style="white-space:nowrap;"><i class="bi bi-plus-lg"></i> Agregar</button>'
-      + '</div>';
+    if (fortCount >= 4) {
+      addFortDiv.innerHTML = '<div style="color:#dc2626;font-size:0.78rem;padding:0.5rem;text-align:center;border:1px dashed #fca5a5;border-radius:6px;background:#fef2f2;"><i class="bi bi-exclamation-circle-fill"></i> Máximo 4 fortalezas permitidas</div>';
+    } else {
+      addFortDiv.innerHTML = '<div class="foda-add-container" style="display:flex;gap:6px;margin-top:8px;">'
+        + '<input type="text" class="foda-add-input" placeholder="Nueva fortaleza..." style="flex:1;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85em;">'
+        + '<button class="btn-small btn-primary foda-add-btn" data-tipo="fortaleza" style="white-space:nowrap;"><i class="bi bi-plus-lg"></i> Agregar</button>'
+        + '</div>';
+    }
   }
   var addDebDiv = document.getElementById('m04AddDebilidad');
   if (addDebDiv) {
-    addDebDiv.innerHTML = '<div class="foda-add-container" style="display:flex;gap:6px;margin-top:8px;">'
-      + '<input type="text" class="foda-add-input" placeholder="Nueva debilidad..." style="flex:1;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85em;">'
-      + '<button class="btn-small btn-danger foda-add-btn" data-tipo="debilidad" style="white-space:nowrap;"><i class="bi bi-plus-lg"></i> Agregar</button>'
-      + '</div>';
+    if (debCount >= 4) {
+      addDebDiv.innerHTML = '<div style="color:#dc2626;font-size:0.78rem;padding:0.5rem;text-align:center;border:1px dashed #fca5a5;border-radius:6px;background:#fef2f2;"><i class="bi bi-exclamation-circle-fill"></i> Máximo 4 debilidades permitidas</div>';
+    } else {
+      addDebDiv.innerHTML = '<div class="foda-add-container" style="display:flex;gap:6px;margin-top:8px;">'
+        + '<input type="text" class="foda-add-input" placeholder="Nueva debilidad..." style="flex:1;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85em;">'
+        + '<button class="btn-small btn-danger foda-add-btn" data-tipo="debilidad" style="white-space:nowrap;"><i class="bi bi-plus-lg"></i> Agregar</button>'
+        + '</div>';
+    }
   }
 }
 
@@ -3070,19 +3080,29 @@ function renderBcgFodaTables() {
     ? debilidadesList.join('')
     : '<tr class="empty-state-row"><td colspan="3"><i class="bi bi-check-circle"></i><br>No se registraron debilidades</td></tr>';
 
+  var bcgFortCount = fortalezasList.length;
+  var bcgDebCount = debilidadesList.length;
   const addFortDiv = document.getElementById('bcgAddFortaleza');
   if (addFortDiv) {
-    addFortDiv.innerHTML = '<div class="foda-add-container" style="display:flex;gap:6px;margin-top:8px;">'
-      + '<input type="text" class="bcg-foda-add-input" placeholder="Nueva fortaleza..." style="flex:1;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85em;">'
-      + '<button class="btn-small btn-primary bcg-foda-add-btn" data-tipo="fortaleza" style="white-space:nowrap;"><i class="bi bi-plus-lg"></i> Agregar</button>'
-      + '</div>';
+    if (bcgFortCount >= 4) {
+      addFortDiv.innerHTML = '<div style="color:#dc2626;font-size:0.78rem;padding:0.5rem;text-align:center;border:1px dashed #fca5a5;border-radius:6px;background:#fef2f2;"><i class="bi bi-exclamation-circle-fill"></i> Máximo 4 fortalezas permitidas</div>';
+    } else {
+      addFortDiv.innerHTML = '<div class="foda-add-container" style="display:flex;gap:6px;margin-top:8px;">'
+        + '<input type="text" class="bcg-foda-add-input" placeholder="Nueva fortaleza..." style="flex:1;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85em;">'
+        + '<button class="btn-small btn-primary bcg-foda-add-btn" data-tipo="fortaleza" style="white-space:nowrap;"><i class="bi bi-plus-lg"></i> Agregar</button>'
+        + '</div>';
+    }
   }
   const addDebDiv = document.getElementById('bcgAddDebilidad');
   if (addDebDiv) {
-    addDebDiv.innerHTML = '<div class="foda-add-container" style="display:flex;gap:6px;margin-top:8px;">'
-      + '<input type="text" class="bcg-foda-add-input" placeholder="Nueva debilidad..." style="flex:1;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85em;">'
-      + '<button class="btn-small btn-danger bcg-foda-add-btn" data-tipo="debilidad" style="white-space:nowrap;"><i class="bi bi-plus-lg"></i> Agregar</button>'
-      + '</div>';
+    if (bcgDebCount >= 4) {
+      addDebDiv.innerHTML = '<div style="color:#dc2626;font-size:0.78rem;padding:0.5rem;text-align:center;border:1px dashed #fca5a5;border-radius:6px;background:#fef2f2;"><i class="bi bi-exclamation-circle-fill"></i> Máximo 4 debilidades permitidas</div>';
+    } else {
+      addDebDiv.innerHTML = '<div class="foda-add-container" style="display:flex;gap:6px;margin-top:8px;">'
+        + '<input type="text" class="bcg-foda-add-input" placeholder="Nueva debilidad..." style="flex:1;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85em;">'
+        + '<button class="btn-small btn-danger bcg-foda-add-btn" data-tipo="debilidad" style="white-space:nowrap;"><i class="bi bi-plus-lg"></i> Agregar</button>'
+        + '</div>';
+    }
   }
 }
 
@@ -4222,6 +4242,11 @@ function setupEventListeners() {
     var addBtn = e.target.closest('.foda-add-btn');
     if (addBtn) {
       var tipo = addBtn.getAttribute('data-tipo');
+      var currentCount = m04FodaItems.filter(function(item) { return item.tipo === tipo; }).length;
+      if (currentCount >= 4) {
+        showToast('Máximo 4 ' + tipo + 's permitidas.', 'error');
+        return;
+      }
       var container = addBtn.closest('.foda-add-container') || addBtn.parentElement;
       var input = container.querySelector('.foda-add-input');
       if (!input) return;
@@ -4284,6 +4309,11 @@ function setupEventListeners() {
     var bcgAddBtn = e.target.closest('.bcg-foda-add-btn');
     if (bcgAddBtn) {
       var tipo = bcgAddBtn.getAttribute('data-tipo');
+      var currentCount = bcgFodaItems.filter(function(item) { return item.tipo === tipo; }).length;
+      if (currentCount >= 4) {
+        showToast('Máximo 4 ' + tipo + 's permitidas.', 'error');
+        return;
+      }
       var container = bcgAddBtn.closest('.foda-add-container') || bcgAddBtn.parentElement;
       var input = container.querySelector('.bcg-foda-add-input');
       if (!input) return;

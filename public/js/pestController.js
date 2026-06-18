@@ -524,6 +524,10 @@ function renderPestOATables(items) {
   if (ams.length === 0) tbAm.innerHTML = "<tr class='empty-state-row'><td colspan='3'><i class='bi bi-exclamation-triangle'></i><br>No se registraron amenazas</td></tr>";
   var pco = document.getElementById("pestCountOp"); if (pco) pco.innerText = ops.length;
   var pca = document.getElementById("pestCountAm"); if (pca) pca.innerText = ams.length;
+  var addOp = document.getElementById("pestAddOp");
+  var addAm = document.getElementById("pestAddAm");
+  if (addOp) addOp.style.display = ops.length >= 4 ? "none" : "";
+  if (addAm) addAm.style.display = ams.length >= 4 ? "none" : "";
 }
 
 function _pestOARow(item, num) {
@@ -543,6 +547,11 @@ function agregarPestOA(tipo) {
   if (typeof isObjetivosEditable !== "undefined" && !isObjetivosEditable()) { if (typeof showToast !== "undefined") showToast("No se puede modificar en un plan en revision.", "error"); return; }
   var input = document.getElementById(tipo === "oportunidad" ? "pestOpInput" : "pestAmInput");
   if (!input || !input.value.trim()) { if (typeof showToast !== "undefined") showToast("Escribe un enunciado.", "error"); return; }
+  var count = parseInt(document.getElementById(tipo === "oportunidad" ? "pestCountOp" : "pestCountAm").innerText) || 0;
+  if (count >= 4) {
+    if (typeof showToast !== "undefined") showToast("Máximo 4 " + (tipo === "oportunidad" ? "oportunidades" : "amenazas") + " permitidas.", "error");
+    return;
+  }
   if (modoActualizacion && _pestOALocal !== null) {
     var newId = Date.now() + Math.random();
     _pestOALocal.push({ id: newId, tipo: tipo, descripcion: input.value.trim(), orden: 0 });

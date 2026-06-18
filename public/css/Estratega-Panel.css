@@ -3778,3 +3778,256 @@
     padding: 1rem;
   }
 }
+
+/* ==================== FODA CROSS MATRICES (FO, FA, DO, DA) ==================== */
+
+.dafo-matrices-section {
+  animation: slideUp 0.4s ease-out;
+}
+
+.dafo-matrices-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.dafo-matrix-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  transition: box-shadow 0.2s;
+}
+
+.dafo-matrix-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+.dafo-matrix-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dafo-matrix-header.fortalezas-header {
+  background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+  border-bottom-color: #a7f3d0;
+}
+
+.dafo-matrix-header.debilidades-header {
+  background: linear-gradient(135deg, #fef2f2, #fee2e2);
+  border-bottom-color: #fca5a5;
+}
+
+.dafo-matrix-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 0.2rem;
+}
+
+.dafo-matrix-desc {
+  font-size: 0.72rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.dafo-matrix-table-wrapper {
+  overflow-x: auto;
+  padding: 0;
+}
+
+.dafo-matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  min-width: 400px;
+}
+
+.dafo-matrix-table th,
+.dafo-matrix-table td {
+  padding: 0.5rem 0.4rem;
+  border: 1px solid #f1f5f9;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.dafo-matrix-table thead th {
+  background: #f8fafc;
+  font-weight: 700;
+  color: #475569;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.dafo-matrix-col-header {
+  min-width: 80px;
+  line-height: 1.3;
+}
+
+.dafo-matrix-col-desc,
+.dafo-matrix-row-desc {
+  display: block;
+  font-weight: 400;
+  font-size: 0.65rem;
+  color: #94a3b8;
+  text-transform: none;
+  letter-spacing: 0;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dafo-matrix-row-header {
+  min-width: 100px;
+  text-align: left !important;
+  padding-left: 0.75rem !important;
+}
+
+.dafo-matrix-row-label {
+  text-align: left;
+  padding-left: 0.75rem;
+  font-size: 0.75rem;
+  min-width: 110px;
+  line-height: 1.3;
+}
+
+.dafo-matrix-row-label strong {
+  color: #1e293b;
+}
+
+.dafo-matrix-cell {
+  padding: 0.15rem !important;
+}
+
+.dafo-matrix-input {
+  width: 44px;
+  height: 32px;
+  text-align: center;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e293b;
+  background: #ffffff;
+  outline: none;
+  transition: all 0.15s ease;
+  -moz-appearance: textfield;
+}
+
+.dafo-matrix-input::-webkit-inner-spin-button,
+.dafo-matrix-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.dafo-matrix-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.dafo-matrix-input::placeholder {
+  color: #cbd5e1;
+  font-weight: 400;
+}
+
+.dafo-matrix-cell-readonly {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.dafo-matrix-total-header {
+  font-weight: 700;
+  min-width: 50px;
+}
+
+.dafo-matrix-total-header.total-fo,
+.dafo-matrix-total-cell.total-fo,
+.dafo-matrix-grand-total.total-fo {
+  color: #065f46;
+  background: #f0fdf4;
+}
+
+.dafo-matrix-total-header.total-fa,
+.dafo-matrix-total-cell.total-fa,
+.dafo-matrix-grand-total.total-fa {
+  color: #1e40af;
+  background: #eff6ff;
+}
+
+.dafo-matrix-total-header.total-do,
+.dafo-matrix-total-cell.total-do,
+.dafo-matrix-grand-total.total-do {
+  color: #991b1b;
+  background: #fef2f2;
+}
+
+.dafo-matrix-total-header.total-da,
+.dafo-matrix-total-cell.total-da,
+.dafo-matrix-grand-total.total-da {
+  color: #92400e;
+  background: #fffbeb;
+}
+
+.dafo-matrix-total-cell,
+.dafo-matrix-grand-total {
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.dafo-matrix-grand-total {
+  font-size: 0.95rem;
+}
+
+.dafo-matrix-total-row td {
+  border-top: 2px solid #e2e8f0;
+  font-weight: 700;
+}
+
+.dafo-matrix-empty {
+  text-align: center;
+  color: #94a3b8;
+  padding: 1.5rem;
+}
+
+.dafo-matrix-section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 1rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dafo-matrix-section-title i {
+  color: #2563eb;
+}
+
+@media (max-width: 1200px) {
+  .dafo-matrices-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .dafo-matrix-table {
+    font-size: 0.7rem;
+    min-width: 300px;
+  }
+  .dafo-matrix-input {
+    width: 36px;
+    height: 28px;
+    font-size: 0.78rem;
+  }
+  .dafo-matrix-row-label {
+    min-width: 80px;
+  }
+  .dafo-matrix-col-header {
+    min-width: 60px;
+  }
+}

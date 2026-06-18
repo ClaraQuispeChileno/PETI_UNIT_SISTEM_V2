@@ -5,45 +5,72 @@ var itemsF = [];
 var itemsD = [];
 var itemsO = [];
 var itemsA = [];
-var scores = {};
-var currentStep = 1;
+
+var matrixScores = {};
 var dafoCompletado = false;
 var dafoModoActualizacion = false;
-var dafoPuntajesGuardados = null;
+var dafoMatrixGuardados = null;
 
-var pasos = [
-  { id: 'fortaleza', label: 'Fortalezas', icon: 'bi-shield-check-fill', color: '#059669' },
-  { id: 'debilidad', label: 'Debilidades', icon: 'bi-exclamation-triangle-fill', color: '#dc2626' },
-  { id: 'oportunidad', label: 'Oportunidades', icon: 'bi-sun-fill', color: '#2563eb' },
-  { id: 'amenaza', label: 'Amenazas', icon: 'bi-cloud-lightning-fill', color: '#d97706' }
+var matrixConfig = [
+  { id:'FO', label:'FO - Fortalezas vs Oportunidades', desc:'Las fortalezas permiten aprovechar las oportunidades.', rows:function(){return itemsF;}, cols:function(){return itemsO;}, rowLabel:'Fortalezas', colLabel:'Oportunidades', rowKey:'fortaleza', colKey:'oportunidad',
+    rowPrefix:'F', colPrefix:'O', headerClass:'fortalezas-header', totalClass:'total-fo' },
+  { id:'FA', label:'FA - Fortalezas vs Amenazas', desc:'Las fortalezas evaden o reducen el efecto negativo de las amenazas.', rows:function(){return itemsF;}, cols:function(){return itemsA;}, rowLabel:'Fortalezas', colLabel:'Amenazas', rowKey:'fortaleza', colKey:'amenaza',
+    rowPrefix:'F', colPrefix:'A', headerClass:'fortalezas-header', totalClass:'total-fa' },
+  { id:'DO', label:'DO - Debilidades vs Oportunidades', desc:'Las debilidades pueden superarse aprovechando las oportunidades.', rows:function(){return itemsD;}, cols:function(){return itemsO;}, rowLabel:'Debilidades', colLabel:'Oportunidades', rowKey:'debilidad', colKey:'oportunidad',
+    rowPrefix:'D', colPrefix:'O', headerClass:'debilidades-header', totalClass:'total-do' },
+  { id:'DA', label:'DA - Debilidades vs Amenazas', desc:'Las debilidades intensifican notablemente el efecto negativo de las amenazas.', rows:function(){return itemsD;}, cols:function(){return itemsA;}, rowLabel:'Debilidades', colLabel:'Amenazas', rowKey:'debilidad', colKey:'amenaza',
+    rowPrefix:'D', colPrefix:'A', headerClass:'debilidades-header', totalClass:'total-da' }
 ];
 
-var escalaLikert = [
-  { val: 0, label: 'En total desacuerdo' },
-  { val: 1, label: 'No está de acuerdo' },
-  { val: 2, label: 'Está de acuerdo' },
-  { val: 3, label: 'Bastante de acuerdo' },
-  { val: 4, label: 'En total acuerdo' }
-];
-
-function obtenerItems() {
-  if (currentStep === 1) return itemsF;
-  if (currentStep === 2) return itemsD;
-  if (currentStep === 3) return itemsO;
-  return itemsA;
+function getMatrixKey(matrixId, rowId, colId) {
+  return matrixId + '_' + rowId + '_' + colId;
 }
 
-function obtenerTipo() {
-  return pasos[currentStep - 1].id;
+function getCellValue(matrixId, rowId, colId) {
+  if (!matrixScores[matrixId]) return '';
+  if (!matrixScores[matrixId][rowId]) return '';
+  var v = matrixScores[matrixId][rowId][colId];
+  return (v !== undefined && v !== null) ? v : '';
+}
+
+function setCellValue(matrixId, rowId, colId, val) {
+  if (!matrixScores[matrixId]) matrixScores[matrixId] = {};
+  if (!matrixScores[matrixId][rowId]) matrixScores[matrixId][rowId] = {};
+  matrixScores[matrixId][rowId][colId] = val;
+}
+
+function calcColTotal(matrixId, colId) {
+  var cfg = matrixConfig.find(function(m) { return m.id === matrixId; });
+  if (!cfg) return 0;
+  var rows = cfg.rows();
+  var total = 0;
+  rows.forEach(function(row) {
+    var v = getCellValue(matrixId, row.id, colId);
+    if (v !== '' && !isNaN(v)) total += parseInt(v);
+  });
+  return total;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
+}
+
+function truncateText(text, maxLen) {
+  if (!text) return '';
+  return text.length > maxLen ? text.substring(0, maxLen) + '...' : text;
 }
 
 function cargarDafo() {
   try {
     if (typeof currentPlanId === "undefined" || !currentPlanId) return;
-
     var pid = currentPlanId;
 
-    // Cargar F/D/O/A registrados en base de datos por modulo + plan_contenido M08
     var p1 = supabaseClient.from("foda").select("*").eq("plan_id", pid).order("id");
     var p2 = supabaseClient.from("cadena_valor_foda").select("*").eq("plan_id", pid).order("id");
     var p3 = supabaseClient.from("bcg_foda").select("*").eq("plan_id", pid).not("generado_auto", "eq", true).order("id");
@@ -55,64 +82,48 @@ function cargarDafo() {
       function valid(item) { return item && item.tipo && item.descripcion; }
       function descExists(arr, desc) { return arr.some(function(x){ return x.descripcion === desc; }); }
 
-      // Datos de foda solo se usan para migrar puntajes previos; no se muestran como items
-      var fodaData = (results[0].data || []).filter(valid);
-
-      // Resetear items mostrados: solo provienen de las tablas de cada modulo
       itemsF = []; itemsD = []; itemsO = []; itemsA = [];
 
-      // Fortalezas/Debilidades desde Cadena de Valor (M04)
       (results[1].data || []).filter(valid).forEach(function(item) {
         if (item.tipo !== "fortaleza" && item.tipo !== "debilidad") return;
         if (descExists(itemsF, item.descripcion) || descExists(itemsD, item.descripcion)) return;
-        (item.tipo === "fortaleza" ? itemsF : itemsD).push({ id: "cad_valor_" + item.id, tipo: item.tipo, descripcion: item.descripcion, trazabilidad: { origen: "cadena_valor_foda", id: item.id } });
+        (item.tipo === "fortaleza" ? itemsF : itemsD).push({ id: "cad_valor_" + item.id, tipo: item.tipo, descripcion: item.descripcion, origen: "cadena_valor_foda" });
       });
 
-      // Fortalezas/Debilidades desde BCG (M05)
       (results[2].data || []).filter(valid).forEach(function(item) {
         if (item.tipo !== "fortaleza" && item.tipo !== "debilidad") return;
         if (descExists(itemsF, item.descripcion) || descExists(itemsD, item.descripcion)) return;
-        (item.tipo === "fortaleza" ? itemsF : itemsD).push({ id: "bcg_foda_" + item.id, tipo: item.tipo, descripcion: item.descripcion, trazabilidad: { origen: "bcg_foda", id: item.id } });
+        (item.tipo === "fortaleza" ? itemsF : itemsD).push({ id: "bcg_foda_" + item.id, tipo: item.tipo, descripcion: item.descripcion, origen: "bcg_foda" });
       });
 
-      // Oportunidades/Amenazas desde Porter (M06)
       (results[3].data || []).filter(valid).forEach(function(item) {
         if (item.tipo !== "oportunidad" && item.tipo !== "amenaza") return;
         if (descExists(itemsO, item.descripcion) || descExists(itemsA, item.descripcion)) return;
-        (item.tipo === "oportunidad" ? itemsO : itemsA).push({ id: "porter_oa_" + item.id, tipo: item.tipo, descripcion: item.descripcion, trazabilidad: { origen: "porter_oa", id: item.id } });
+        (item.tipo === "oportunidad" ? itemsO : itemsA).push({ id: "porter_oa_" + item.id, tipo: item.tipo, descripcion: item.descripcion, origen: "porter_oa" });
       });
 
-      // Oportunidades/Amenazas desde PEST (M07)
       (results[4].data || []).filter(valid).forEach(function(item) {
         if (item.tipo !== "oportunidad" && item.tipo !== "amenaza") return;
         if (descExists(itemsO, item.descripcion) || descExists(itemsA, item.descripcion)) return;
-        (item.tipo === "oportunidad" ? itemsO : itemsA).push({ id: "pest_oa_" + item.id, tipo: item.tipo, descripcion: item.descripcion, trazabilidad: { origen: "pest_oa", id: item.id } });
+        (item.tipo === "oportunidad" ? itemsO : itemsA).push({ id: "pest_oa_" + item.id, tipo: item.tipo, descripcion: item.descripcion, origen: "pest_oa" });
       });
 
       dafoCompletado = itemsF.length > 0 || itemsD.length > 0 || itemsO.length > 0 || itemsA.length > 0;
 
       var pcRes = results[5].data;
-      if (pcRes && pcRes.contenido) {
-        scores = pcRes.contenido.scores || {};
-        dafoPuntajesGuardados = pcRes.contenido.puntajes || null;
+      if (pcRes && pcRes.contenido && pcRes.contenido.matrixScores) {
+        matrixScores = pcRes.contenido.matrixScores || {};
+        dafoMatrixGuardados = pcRes.contenido.matrixScores || null;
+      } else if (pcRes && pcRes.contenido && pcRes.contenido.scores) {
+        var oldScores = pcRes.contenido.scores || {};
+        matrixScores = {};
+        dafoMatrixGuardados = null;
       } else {
-        scores = {};
-        dafoPuntajesGuardados = null;
+        matrixScores = {};
+        dafoMatrixGuardados = null;
       }
 
-      // Migrar puntajes previos de registros foda a items de modulos con igual descripcion+tipo
-      var allItems = itemsF.concat(itemsD).concat(itemsO).concat(itemsA);
-      fodaData.forEach(function(f) {
-        var oldKey = "" + f.id;
-        if (scores[oldKey] === undefined) return;
-        var match = allItems.find(function(x){ return x.tipo === f.tipo && x.descripcion === f.descripcion; });
-        if (match && scores["" + match.id] === undefined) {
-          scores["" + match.id] = scores[oldKey];
-        }
-      });
-
       dafoModoActualizacion = false;
-      currentStep = 1;
       renderDafoUI();
     }).catch(function(e) { console.error("Error cargarDafo:", e); });
   } catch(e2) { console.error("Error cargarDafo:", e2); }
@@ -140,7 +151,7 @@ function renderDafoUI() {
 
   if (dafoModoActualizacion) {
     if (alertBanner) { alertBanner.style.display = "flex"; alertBanner.style.justifyContent = "center"; }
-    if (alertText) alertText.textContent = "Este planeamiento se está actualizando, complete todos los pasos.";
+    if (alertText) alertText.textContent = "Este planeamiento se está actualizando, complete la evaluación de la matriz.";
     if (actualizarBtn) actualizarBtn.style.display = "none";
   } else if (dafoCompletado) {
     if (alertBanner) { alertBanner.style.display = "flex"; alertBanner.style.justifyContent = "space-between"; }
@@ -148,7 +159,7 @@ function renderDafoUI() {
     if (actualizarBtn) { actualizarBtn.style.display = ""; actualizarBtnText.textContent = "Actualizar FODA"; }
   } else {
     if (alertBanner) { alertBanner.style.display = "flex"; alertBanner.style.justifyContent = "center"; }
-    if (alertText) alertText.textContent = "En este planeamiento no hay datos registrados, agregue uno.";
+    if (alertText) alertText.textContent = "En este planeamiento no hay datos registrados, agrégalos desde los módulos previos.";
     if (actualizarBtn) { actualizarBtn.style.display = ""; actualizarBtnText.textContent = "Actualizar FODA"; }
   }
 
@@ -159,14 +170,13 @@ function renderDafoUI() {
 
   if (!dafoModoActualizacion) {
     renderFactoresGrid();
-    renderResultadosGuardados();
+    renderMatrixResults();
   }
 
   var wizard = document.getElementById("dafoWizardContainer");
   if (dafoModoActualizacion) {
     if (wizard) wizard.style.display = "block";
-    renderDafoStepper();
-    renderDafoStep();
+    renderMatrices();
   } else {
     if (wizard) wizard.style.display = "none";
   }
@@ -195,9 +205,7 @@ function renderFactoresGrid() {
     } else {
       html += '<ul class="dafo-factores-list">';
       c.items.forEach(function(item) {
-        var score = scores["" + item.id] !== undefined ? scores["" + item.id] : "—";
-        var desc = item.descripcion || "";
-        html += '<li><span class="dafo-item-score" style="background:' + c.color + ';">' + score + '</span> ' + (desc.length > 90 ? desc.substring(0, 90) + "..." : desc) + '</li>';
+        html += '<li>' + escapeHtml(truncateText(item.descripcion, 90)) + '</li>';
       });
       html += '</ul>';
     }
@@ -207,234 +215,278 @@ function renderFactoresGrid() {
   grid.innerHTML = html;
 }
 
-function renderResultadosGuardados() {
+function renderMatrixResults() {
   var container = document.getElementById("dafoResultadosGuardados");
   var section = document.getElementById("dafoFactoresSection");
   if (!container) return;
 
-  if (!dafoPuntajesGuardados || dafoPuntajesGuardados.FO === undefined) {
+  if (!dafoMatrixGuardados) {
     container.style.display = "none";
     container.innerHTML = "";
     if (section) section.classList.remove("dafo-factores-section-results");
     return;
   }
 
-  var p = dafoPuntajesGuardados;
-  var relaciones = [
-    { rel: "FO", label: "Fortalezas + Oportunidades", tipo: "Estrategia Ofensiva", punt: typeof p.FO === "number" ? p.FO : 0, desc: "Deberá adoptar estrategias de crecimiento", color: "#059669" },
-    { rel: "AF", label: "Amenazas + Fortalezas", tipo: "Estrategia Defensiva", punt: typeof p.AF === "number" ? p.AF : 0, desc: "La empresa está preparada para enfrentarse a las amenazas", color: "#2563eb" },
-    { rel: "AD", label: "Amenazas + Debilidades", tipo: "Estrategia de Supervivencia", punt: typeof p.AD === "number" ? p.AD : 0, desc: "Se enfrenta a amenazas externas sin las fortalezas necesarias", color: "#d97706" },
-    { rel: "OD", label: "Oportunidades + Debilidades", tipo: "Estrategia de Reorientación", punt: typeof p.OD === "number" ? p.OD : 0, desc: "La empresa no puede aprovechar las oportunidades por falta de preparación", color: "#dc2626" }
-  ];
+  var html = '<div class="dafo-matrix-section">';
+  html += '<h3 class="dafo-matrix-section-title"><i class="bi bi-table"></i> Matriz FODA - Resultados Guardados</h3>';
+  html += '<div class="dafo-matrices-grid">';
 
-  var html = '<div class="dafo-resultados-guardados-card" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:1rem;padding:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,0.04);">';
-  html += '<h3 style="font-size:1rem;font-weight:700;color:#0f172a;margin-bottom:1rem;"><i class="bi bi-bar-chart-fill" style="color:#2563eb;"></i> Resultados guardados de la Matriz FODA</h3>';
-  html += '<div class="dafo-results-summary-grid" style="margin-bottom:1rem;">';
-  html += '<div class="resumen-card-premium"><span class="card-label">Fortalezas</span><div class="puntaje-total-premium">' + itemsF.length + '</div></div>';
-  html += '<div class="resumen-card-premium"><span class="card-label">Debilidades</span><div class="puntaje-total-premium">' + itemsD.length + '</div></div>';
-  html += '<div class="resumen-card-premium"><span class="card-label">Oportunidades</span><div class="puntaje-total-premium">' + itemsO.length + '</div></div>';
-  html += '<div class="resumen-card-premium"><span class="card-label">Amenazas</span><div class="puntaje-total-premium">' + itemsA.length + '</div></div>';
-  html += '</div>';
-
-  html += '<div class="dafo-results-table-wrapper"><table class="dafo-results-table">';
-  html += '<thead><tr><th>Cruce</th><th>Estrategia</th><th>Puntuación</th><th>Interpretación</th></tr></thead><tbody>';
-  relaciones.forEach(function(r) {
-    var barColor = r.punt >= 70 ? '#059669' : (r.punt >= 40 ? '#d97706' : '#dc2626');
-    html += '<tr>';
-    html += '<td><strong>' + r.rel + '</strong><br><span style="font-size:0.75rem;color:#64748b;">' + r.label + '</span></td>';
-    html += '<td>' + r.tipo + '</td>';
-    html += '<td><div class="dafo-score-cell"><div class="dafo-score-bar"><div class="dafo-score-fill" style="width:' + r.punt + '%;background:' + barColor + ';"></div></div><span class="dafo-score-value" style="color:' + barColor + ';">' + r.punt + '%</span></div></td>';
-    html += '<td style="font-size:0.82rem;color:#64748b;">' + r.desc + '</td>';
-    html += '</tr>';
+  matrixConfig.forEach(function(cfg) {
+    html += renderMatrixTable(cfg, true);
   });
-  html += '</tbody></table></div>';
-  html += '</div>';
+
+  html += '</div></div>';
 
   container.innerHTML = html;
   container.style.display = "block";
   if (section) section.classList.add("dafo-factores-section-results");
 }
 
-function renderDafoStepper() {
-  var steps = document.querySelectorAll("#dafoStepper .stepper-step");
-  var completos = [false, false, false, false, false];
-  for (var s = 1; s <= 4; s++) {
-    completos[s] = dafoStepIsComplete(s);
+function renderMatrixTable(cfg, readOnly) {
+  var rows = cfg.rows();
+  var cols = cfg.cols();
+
+  if (rows.length === 0 || cols.length === 0) {
+    return '<div class="dafo-matrix-empty">No hay suficientes factores para la matriz ' + cfg.id + '.</div>';
   }
 
-  steps.forEach(function(stepEl) {
-    var step = parseInt(stepEl.getAttribute("data-step"));
-    stepEl.classList.remove("active", "completed", "locked");
-    var unlocked = true;
-    for (var prev = 1; prev < step; prev++) {
-      if (!completos[prev]) { unlocked = false; break; }
-    }
-    if (step === currentStep) {
-      stepEl.classList.add("active");
-    } else if (completos[step]) {
-      stepEl.classList.add("completed");
-    } else if (!unlocked) {
-      stepEl.classList.add("locked");
-    }
+  var html = '<div class="dafo-matrix-card">';
+  html += '<div class="dafo-matrix-header ' + cfg.headerClass + '">';
+  html += '<div class="dafo-matrix-title">' + cfg.label + '</div>';
+  html += '<div class="dafo-matrix-desc">' + cfg.desc + '</div>';
+  html += '</div>';
+
+  html += '<div class="dafo-matrix-table-wrapper">';
+  html += '<table class="dafo-matrix-table">';
+  html += '<thead><tr><th class="dafo-matrix-row-header">' + cfg.rowLabel + ' / ' + cfg.colLabel + '</th>';
+
+  cols.forEach(function(col, ci) {
+    var colLabel = cfg.colPrefix + (ci + 1);
+    html += '<th class="dafo-matrix-col-header" title="' + escapeHtml(col.descripcion) + '">' + colLabel + '<br><span class="dafo-matrix-col-desc">' + escapeHtml(truncateText(col.descripcion, 40)) + '</span></th>';
   });
 
-  var progressLine = document.getElementById("dafoStepperProgressLine");
-  if (progressLine) {
-    var completed = 0;
-    for (var s = 1; s <= 4; s++) if (completos[s]) completed++;
-    progressLine.style.width = Math.min((completed / 3) * 100, 100) + "%";
-  }
+  html += '<th class="dafo-matrix-total-header ' + cfg.totalClass + '">Total</th>';
+  html += '</tr></thead><tbody>';
 
-  var labelEl = document.getElementById("dafoStepperCurrentLabel");
-  if (labelEl) {
-    labelEl.innerHTML = '<i class="bi bi-arrow-right-circle-fill"></i> Paso ' + currentStep + ' de 4: ' + pasos[currentStep - 1].label;
-  }
-}
+  rows.forEach(function(row, ri) {
+    var rowLabel = cfg.rowPrefix + (ri + 1);
+    html += '<tr>';
+    html += '<td class="dafo-matrix-row-label" title="' + escapeHtml(row.descripcion) + '"><strong>' + rowLabel + '</strong><br><span class="dafo-matrix-row-desc">' + escapeHtml(truncateText(row.descripcion, 40)) + '</span></td>';
 
-function dafoStepIsComplete(step) {
-  var items;
-  if (step === 1) items = itemsF;
-  else if (step === 2) items = itemsD;
-  else if (step === 3) items = itemsO;
-  else items = itemsA;
-  if (items.length === 0) return false;
-  for (var i = 0; i < items.length; i++) {
-    var key = "" + items[i].id;
-    if (scores[key] === undefined) return false;
-  }
-  return true;
-}
+    var rowTotal = 0;
+    cols.forEach(function(col, ci) {
+      var key = getMatrixKey(cfg.id, row.id, col.id);
+      var val = getCellValue(cfg.id, row.id, col.id);
+      var numVal = (val !== '' && !isNaN(val)) ? parseInt(val) : 0;
+      rowTotal += numVal;
 
-function renderDafoStep() {
-  var paso = pasos[currentStep - 1];
-  var items = obtenerItems();
-  var tipo = paso.id;
+      if (readOnly) {
+        html += '<td class="dafo-matrix-cell dafo-matrix-cell-readonly">' + (val !== '' ? val : '-') + '</td>';
+      } else {
+        html += '<td class="dafo-matrix-cell">';
+        html += '<input type="number" class="dafo-matrix-input" min="0" max="4" step="1" ';
+        html += 'data-matrix="' + cfg.id + '" data-row-id="' + row.id + '" data-col-id="' + col.id + '" ';
+        html += 'value="' + (val !== '' ? val : '') + '" placeholder="0">';
+        html += '</td>';
+      }
+    });
 
-  var tituloEl = document.getElementById("dafoBloqueTitulo");
-  if (tituloEl) tituloEl.innerHTML = paso.label.toUpperCase() + " — PUNTUACION (0-4)";
-
-  var barFill = document.getElementById("dafoBarFill");
-  var barLabel = document.getElementById("dafoBarLabel");
-  var completedCount = 0;
-  items.forEach(function(item) {
-    if (scores["" + item.id] !== undefined) completedCount++;
+    html += '<td class="dafo-matrix-total-cell ' + cfg.totalClass + '">' + rowTotal + '</td>';
+    html += '</tr>';
   });
-  var pct = items.length > 0 ? (completedCount / items.length) * 100 : 0;
-  if (barFill) barFill.style.width = pct + "%";
-  if (barLabel) barLabel.textContent = completedCount + "/" + items.length;
 
-  var prevBtn = document.getElementById("dafoPrevBtn");
-  if (prevBtn) prevBtn.disabled = (currentStep === 1);
+  html += '<tr class="dafo-matrix-total-row">';
+  html += '<td class="dafo-matrix-row-label"><strong>Total</strong></td>';
 
-  var nextBtn = document.getElementById("dafoNextBtn");
-  if (nextBtn) {
-    nextBtn.disabled = !dafoStepIsComplete(currentStep);
-    if (currentStep === 4) {
-      nextBtn.innerHTML = 'Mostrar resultados <i class="bi bi-bar-chart-fill"></i>';
-    } else {
-      nextBtn.innerHTML = 'Siguiente <i class="bi bi-arrow-right"></i>';
-    }
-  }
+  cols.forEach(function(col, ci) {
+    var colTotal = calcColTotal(cfg.id, col.id);
+    html += '<td class="dafo-matrix-total-cell ' + cfg.totalClass + '">' + colTotal + '</td>';
+  });
 
-  var cancelBtn = document.getElementById("dafoCancelBtn");
-  if (cancelBtn) cancelBtn.style.display = dafoModoActualizacion ? "" : "none";
+  var grandTotal = 0;
+  rows.forEach(function(row) {
+    cols.forEach(function(col) {
+      var val = getCellValue(cfg.id, row.id, col.id);
+      if (val !== '' && !isNaN(val)) grandTotal += parseInt(val);
+    });
+  });
+  html += '<td class="dafo-matrix-grand-total ' + cfg.totalClass + '">' + grandTotal + '</td>';
+  html += '</tr>';
 
-  var infoEl = document.getElementById("dafoStepInfo");
-  if (infoEl) {
-    if (items.length === 0) {
-      infoEl.textContent = "No hay items en esta categoria";
-    } else if (completedCount < items.length) {
-      infoEl.textContent = "Puntue todos los items para continuar (" + completedCount + "/" + items.length + ")";
-    } else {
-      infoEl.textContent = "Todos los items han sido puntuados";
-    }
-  }
+  html += '</tbody></table>';
+  html += '</div></div>';
 
-  var countEl = document.getElementById("dafoItemsCount");
-  if (countEl) countEl.textContent = items.length;
+  return html;
+}
 
+function renderMatrices() {
   var content = document.getElementById("dafoStepContent");
   if (!content) return;
 
-  var html = '<div class="dafo-step-items">';
-  if (items.length === 0) {
-    html += '<div style="text-align:center;color:#94a3b8;padding:1.5rem;">No hay factores de ' + paso.label.toLowerCase() + ' registrados en este plan.</div>';
-  } else {
-    items.forEach(function(item, idx) {
-      var key = "" + item.id;
-      var currentScore = scores[key] !== undefined ? scores[key] : -1;
-      html += '<div class="dafo-step-item" data-id="' + item.id + '">';
-      html += '<div class="dafo-step-item-text">' + escapeHtml(item.descripcion) + '</div>';
-      html += '<div class="dafo-likert-group">';
-      escalaLikert.forEach(function(opt) {
-        var selected = currentScore === opt.val ? ' selected' : '';
-        html += '<button class="dafo-likert-btn' + selected + '" data-id="' + item.id + '" data-val="' + opt.val + '" title="' + opt.label + '">' + opt.val + '</button>';
-      });
-      html += '</div></div>';
-    });
-  }
-  html += '</div>';
+  var tituloEl = document.getElementById("dafoBloqueTitulo");
+  if (tituloEl) tituloEl.textContent = "MATRIZ FODA — EVALUACIÓN CRUZADA (0-4)";
 
-  html += '<div class="dafo-escala-leyenda" style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid #f1f5f9;">';
+  var stepperContainer = document.querySelector("#dafoWizardContainer > .wizard-stepper-container");
+  if (stepperContainer) stepperContainer.style.display = "none";
+
+  if (itemsF.length === 0 || itemsD.length === 0 || itemsO.length === 0 || itemsA.length === 0) {
+    content.innerHTML = '<div style="text-align:center;color:#94a3b8;padding:2.5rem;"><i class="bi bi-inbox" style="font-size:2rem;display:block;margin-bottom:0.75rem;"></i>Se requieren factores de los 4 tipos (Fortalezas, Debilidades, Oportunidades, Amenazas) para generar la Matriz FODA.<br>Complete los módulos de análisis previos (Cadena de Valor, BCG, Porter, PEST) para registrar los factores necesarios.</div>';
+    var nextBtn = document.getElementById("dafoNextBtn");
+    if (nextBtn) nextBtn.disabled = true;
+    return;
+  }
+
+  var html = '<div class="dafo-matrices-section">';
+  html += '<div class="dafo-matrices-grid">';
+
+  matrixConfig.forEach(function(cfg) {
+    html += renderMatrixTable(cfg, false);
+  });
+
+  html += '</div></div>';
+
+  html += '<div class="dafo-escala-leyenda" style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid #f1f5f9;">';
   html += '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;font-size:0.78rem;color:#64748b;">';
-  escalaLikert.forEach(function(opt) {
+  var escalaItems = [
+    { val: 0, label: 'En total desacuerdo' },
+    { val: 1, label: 'No está de acuerdo' },
+    { val: 2, label: 'Está de acuerdo' },
+    { val: 3, label: 'Bastante de acuerdo' },
+    { val: 4, label: 'En total acuerdo' }
+  ];
+  escalaItems.forEach(function(opt, idx) {
     html += '<span><strong>' + opt.val + '</strong> = ' + opt.label + '</span>';
-    if (opt.val < 4) html += '<span style="color:#d1d5db;">|</span>';
+    if (idx < escalaItems.length - 1) html += '<span style="color:#d1d5db;">|</span>';
   });
   html += '</div></div>';
 
   content.innerHTML = html;
+
+  var prevBtn = document.getElementById("dafoPrevBtn");
+  var nextBtn = document.getElementById("dafoNextBtn");
+  var cancelBtn = document.getElementById("dafoCancelBtn");
+
+  if (prevBtn) prevBtn.disabled = true;
+  if (nextBtn) {
+    nextBtn.disabled = false;
+    nextBtn.innerHTML = 'Mostrar resultados <i class="bi bi-bar-chart-fill"></i>';
+  }
+  if (cancelBtn) cancelBtn.style.display = dafoModoActualizacion ? "" : "none";
+
+  var infoEl = document.getElementById("dafoStepInfo");
+  if (infoEl) infoEl.textContent = "Asigne una puntuación (0-4) a cada relación de la matriz";
+
+  var countEl = document.getElementById("dafoItemsCount");
+  if (countEl) countEl.textContent = (itemsF.length + itemsD.length + itemsO.length + itemsA.length) + " factores";
+
+  updateMatrixTotals();
+  setupMatrixInputListeners();
 }
 
-function navegarDafoAnterior() {
-  if (currentStep > 1) {
-    currentStep--;
-    renderDafoStepper();
-    renderDafoStep();
-  }
-}
+function updateMatrixTotals() {
+  matrixConfig.forEach(function(cfg) {
+    var rows = cfg.rows();
+    var cols = cfg.cols();
+    var table = document.querySelector('.dafo-matrix-card:has(.dafo-matrix-header.' + cfg.headerClass + ') table.dafo-matrix-table');
+    if (!table) return;
 
-function navegarDafoSiguiente() {
-  if (!dafoStepIsComplete(currentStep)) {
-    if (typeof showToast !== "undefined") showToast("Puntue todos los items del paso actual antes de continuar.", "error");
-    return;
-  }
-  if (currentStep < 4) {
-    currentStep++;
-    renderDafoStepper();
-    renderDafoStep();
-  } else {
-    mostrarResultadosDafo();
-  }
-}
+    var tbody = table.querySelector('tbody');
+    if (!tbody) return;
 
-function calcularPuntajes() {
-  function avg(items) {
-    if (items.length === 0) return 0;
-    var sum = 0, count = 0;
-    items.forEach(function(item) {
-      var s = scores["" + item.id];
-      if (s !== undefined) { sum += s; count++; }
+    var rowEls = tbody.querySelectorAll('tr:not(.dafo-matrix-total-row)');
+    rowEls.forEach(function(rowEl, ri) {
+      if (ri >= rows.length) return;
+      var row = rows[ri];
+      if (!row) return;
+      var cellEls = rowEl.querySelectorAll('.dafo-matrix-cell');
+      var rowTotal = 0;
+      cellEls.forEach(function(cellEl, ci) {
+        if (ci >= cols.length) return;
+        var input = cellEl.querySelector('.dafo-matrix-input');
+        if (input) {
+          var v = input.value;
+          if (v !== '' && !isNaN(v)) rowTotal += parseInt(v);
+        }
+      });
+      var totalCell = rowEl.querySelector('.dafo-matrix-total-cell');
+      if (totalCell) totalCell.textContent = rowTotal;
     });
-    return count > 0 ? sum / count : 0;
-  }
 
-  var avgF = avg(itemsF);
-  var avgD = avg(itemsD);
-  var avgO = avg(itemsO);
-  var avgA = avg(itemsA);
+    var totalRow = tbody.querySelector('.dafo-matrix-total-row');
+    if (totalRow) {
+      var colTotalCells = totalRow.querySelectorAll('.dafo-matrix-total-cell');
+      cols.forEach(function(col, ci) {
+        if (ci >= colTotalCells.length - 1) return;
+        var colTotal = 0;
+        rowEls.forEach(function(rowEl, ri) {
+          if (ri >= rows.length) return;
+          var cellEls = rowEl.querySelectorAll('.dafo-matrix-cell');
+          if (ci >= cellEls.length) return;
+          var input = cellEls[ci] ? cellEls[ci].querySelector('.dafo-matrix-input') : null;
+          if (input) {
+            var v = input.value;
+            if (v !== '' && !isNaN(v)) colTotal += parseInt(v);
+          }
+        });
+        colTotalCells[ci].textContent = colTotal;
+      });
 
-  var totalPossible = 4;
-
-  var fo = Math.round(((avgF + avgO) / (2 * totalPossible)) * 100);
-  var af = Math.round(((avgA + avgF) / (2 * totalPossible)) * 100);
-  var ad = Math.round(((avgA + avgD) / (2 * totalPossible)) * 100);
-  var od = Math.round(((avgO + avgD) / (2 * totalPossible)) * 100);
-
-  return { FO: fo, AF: af, AD: ad, OD: od };
+      var grandTotalCell = totalRow.querySelector('.dafo-matrix-grand-total');
+      if (grandTotalCell) {
+        var grandTotal = 0;
+        rowEls.forEach(function(rowEl) {
+          var cellEls = rowEl.querySelectorAll('.dafo-matrix-cell');
+          cellEls.forEach(function(cellEl) {
+            var input = cellEl.querySelector('.dafo-matrix-input');
+            if (input) {
+              var v = input.value;
+              if (v !== '' && !isNaN(v)) grandTotal += parseInt(v);
+            }
+          });
+        });
+        grandTotalCell.textContent = grandTotal;
+      }
+    }
+  });
 }
 
-function mostrarResultadosDafo() {
+function setupMatrixInputListeners() {
+  var inputs = document.querySelectorAll('.dafo-matrix-input');
+  inputs.forEach(function(input) {
+    input.addEventListener('input', function() {
+      var val = this.value;
+      if (val !== '') {
+        var num = parseInt(val);
+        if (isNaN(num) || num < 0) this.value = 0;
+        else if (num > 4) this.value = 4;
+        else this.value = num;
+      }
+      var matrixId = this.getAttribute('data-matrix');
+      var rowId = this.getAttribute('data-row-id');
+      var colId = this.getAttribute('data-col-id');
+      var newVal = this.value !== '' ? parseInt(this.value) : null;
+      setCellValue(matrixId, rowId, colId, newVal);
+      updateMatrixTotals();
+    });
+
+    input.addEventListener('blur', function() {
+      if (this.value === '') this.value = '';
+    });
+
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        this.blur();
+        var nextInput = this.closest('td').nextElementSibling;
+        if (nextInput) {
+          var nextInp = nextInput.querySelector('.dafo-matrix-input');
+          if (nextInp) nextInp.focus();
+        }
+      }
+    });
+  });
+}
+
+function mostrarResultadosMatriz() {
   var factoresSection = document.getElementById("dafoFactoresSection");
   var wizard = document.getElementById("dafoWizardContainer");
   var resultadosGuardados = document.getElementById("dafoResultadosGuardados");
@@ -447,39 +499,19 @@ function mostrarResultadosDafo() {
 
   renderFactoresGrid();
 
-  var puntajes = calcularPuntajes();
-  var relaciones = [
-    { rel: "FO", label: "Fortalezas + Oportunidades", tipo: "Estrategia Ofensiva", punt: puntajes.FO, desc: "Deberá adoptar estrategias de crecimiento", color: "#059669" },
-    { rel: "AF", label: "Amenazas + Fortalezas", tipo: "Estrategia Defensiva", punt: puntajes.AF, desc: "La empresa está preparada para enfrentarse a las amenazas", color: "#2563eb" },
-    { rel: "AD", label: "Amenazas + Debilidades", tipo: "Estrategia de Supervivencia", punt: puntajes.AD, desc: "Se enfrenta a amenazas externas sin las fortalezas necesarias", color: "#d97706" },
-    { rel: "OD", label: "Oportunidades + Debilidades", tipo: "Estrategia de Reorientación", punt: puntajes.OD, desc: "La empresa no puede aprovechar las oportunidades por falta de preparación", color: "#dc2626" }
-  ];
+  var html = '<div class="dafo-matrix-section">';
+  html += '<h3 class="dafo-matrix-section-title"><i class="bi bi-table"></i> Matriz FODA - Resultados</h3>';
+  html += '<div class="dafo-matrices-grid">';
 
-  var html = '<div class="dafo-resultados-guardados-card" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:1rem;padding:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,0.04);">';
-  html += '<h3 style="font-size:1rem;font-weight:700;color:#0f172a;margin-bottom:1rem;"><i class="bi bi-bar-chart-fill" style="color:#2563eb;"></i> Resultados de la Matriz FODA</h3>';
-  html += '<div class="dafo-results-summary-grid" style="margin-bottom:1rem;">';
-  html += '<div class="resumen-card-premium"><span class="card-label">Fortalezas</span><div class="puntaje-total-premium">' + itemsF.length + '</div></div>';
-  html += '<div class="resumen-card-premium"><span class="card-label">Debilidades</span><div class="puntaje-total-premium">' + itemsD.length + '</div></div>';
-  html += '<div class="resumen-card-premium"><span class="card-label">Oportunidades</span><div class="puntaje-total-premium">' + itemsO.length + '</div></div>';
-  html += '<div class="resumen-card-premium"><span class="card-label">Amenazas</span><div class="puntaje-total-premium">' + itemsA.length + '</div></div>';
-  html += '</div>';
-
-  html += '<div class="dafo-results-table-wrapper"><table class="dafo-results-table">';
-  html += '<thead><tr><th>Cruce</th><th>Estrategia</th><th>Puntuación</th><th>Interpretación</th></tr></thead><tbody>';
-  relaciones.forEach(function(r) {
-    var barColor = r.punt >= 70 ? '#059669' : (r.punt >= 40 ? '#d97706' : '#dc2626');
-    html += '<tr>';
-    html += '<td><strong>' + r.rel + '</strong><br><span style="font-size:0.75rem;color:#64748b;">' + r.label + '</span></td>';
-    html += '<td>' + r.tipo + '</td>';
-    html += '<td><div class="dafo-score-cell"><div class="dafo-score-bar"><div class="dafo-score-fill" style="width:' + r.punt + '%;background:' + barColor + ';"></div></div><span class="dafo-score-value" style="color:' + barColor + ';">' + r.punt + '%</span></div></td>';
-    html += '<td style="font-size:0.82rem;color:#64748b;">' + r.desc + '</td>';
-    html += '</tr>';
+  matrixConfig.forEach(function(cfg) {
+    html += renderMatrixTable(cfg, true);
   });
-  html += '</tbody></table></div>';
+
+  html += '</div></div>';
+
   html += '<div id="dafoSaveSection" style="display:flex;justify-content:center;gap:1rem;margin-top:1.5rem;padding-top:1.5rem;border-top:2px solid #e2e8f0;">';
   html += '<button id="dafoGuardarActualizacionBtn" class="btn-primary" style="background:#2563eb;color:white;padding:0.7rem 2rem;font-weight:700;font-size:0.95rem;"><i class="bi bi-check-lg"></i> Guardar actualización</button>';
   html += '<button id="dafoCancelarActualizacionBtn" class="btn-secondary" style="padding:0.7rem 2rem;font-weight:600;font-size:0.95rem;"><i class="bi bi-x-lg"></i> Cancelar actualización</button>';
-  html += '</div>';
   html += '</div>';
 
   if (resultadosGuardados) {
@@ -487,7 +519,6 @@ function mostrarResultadosDafo() {
     resultadosGuardados.style.display = "block";
   }
 
-  // Re-asignar eventos a los botones dinámicos
   var guardarBtn = document.getElementById("dafoGuardarActualizacionBtn");
   var cancelarBtn = document.getElementById("dafoCancelarActualizacionBtn");
   if (guardarBtn) guardarBtn.onclick = function() { guardarDafo(); };
@@ -496,7 +527,7 @@ function mostrarResultadosDafo() {
   var alertBanner = document.getElementById("dafoAlertBanner");
   var alertText = document.getElementById("dafoAlertText");
   if (alertBanner) { alertBanner.style.display = "flex"; alertBanner.style.justifyContent = "center"; }
-  if (alertText) alertText.textContent = "Revise los resultados antes de guardar o cancelar la actualizacion.";
+  if (alertText) alertText.textContent = "Revise los resultados de la Matriz FODA antes de guardar o cancelar la actualización.";
 }
 
 function guardarDafo() {
@@ -505,19 +536,18 @@ function guardarDafo() {
     return;
   }
 
-  var puntajes = calcularPuntajes();
+  var contenido = {
+    matrixScores: matrixScores,
+    total_fortalezas: itemsF.length,
+    total_debilidades: itemsD.length,
+    total_oportunidades: itemsO.length,
+    total_amenazas: itemsA.length
+  };
 
   supabaseClient.from("plan_contenido").upsert({
       plan_id: currentPlanId,
       modulo_id: "M08",
-      contenido: {
-        scores: scores,
-        puntajes: puntajes,
-        total_fortalezas: itemsF.length,
-        total_debilidades: itemsD.length,
-        total_oportunidades: itemsO.length,
-        total_amenazas: itemsA.length
-      },
+      contenido: contenido,
       completado: true,
       completado_fecha: new Date()
     }, { onConflict: "plan_id, modulo_id" })
@@ -526,7 +556,7 @@ function guardarDafo() {
       usuario_id: currentUser ? currentUser.id : null,
       modulo: "M08",
       accion: dafoCompletado ? "ACTUALIZAR" : "CREAR",
-      detalle: "Matriz FODA " + (dafoCompletado ? "actualizada" : "creada") + ". FO:" + puntajes.FO + "% AF:" + puntajes.AF + "% AD:" + puntajes.AD + "% OD:" + puntajes.OD + "%"
+      detalle: "Matriz FODA " + (dafoCompletado ? "actualizada" : "creada") + " con matrices FO, FA, DO, DA."
     });
   }).then(function() {
     dafoCompletado = true;
@@ -548,8 +578,7 @@ function cancelarDafo() {
 
 function iniciarActualizacion() {
   dafoModoActualizacion = true;
-  currentStep = 1;
-  scores = {};
+  matrixScores = {};
   renderDafoUI();
 }
 
@@ -558,48 +587,23 @@ function setupEvents() {
   if (setupDone) return;
   setupDone = true;
 
-  document.getElementById("dafoActualizarBtn").onclick = function() {
-    iniciarActualizacion();
-  };
+  var actualizarBtn = document.getElementById("dafoActualizarBtn");
+  if (actualizarBtn) actualizarBtn.onclick = function() { iniciarActualizacion(); };
 
-  document.getElementById("dafoPrevBtn").onclick = function() {
-    navegarDafoAnterior();
-  };
+  var prevBtn = document.getElementById("dafoPrevBtn");
+  if (prevBtn) prevBtn.onclick = function() { };
 
-  document.getElementById("dafoNextBtn").onclick = function() {
-    navegarDafoSiguiente();
-  };
+  var nextBtn = document.getElementById("dafoNextBtn");
+  if (nextBtn) nextBtn.onclick = function() { mostrarResultadosMatriz(); };
 
-  document.getElementById("dafoCancelBtn").onclick = function() {
-    document.getElementById("dafoCancelConfirmModal").style.display = "flex";
-  };
+  var cancelBtn = document.getElementById("dafoCancelBtn");
+  if (cancelBtn) cancelBtn.onclick = function() { document.getElementById("dafoCancelConfirmModal").style.display = "flex"; };
 
-  document.getElementById("dafoCancelConfirmBtn").onclick = function() {
+  var cancelConfirmBtn = document.getElementById("dafoCancelConfirmBtn");
+  if (cancelConfirmBtn) cancelConfirmBtn.onclick = function() {
     document.getElementById("dafoCancelConfirmModal").style.display = "none";
     cancelarDafo();
   };
-
-  document.getElementById("dafoWizardContainer").addEventListener("click", function(e) {
-    var btn = e.target.closest(".dafo-likert-btn");
-    if (btn) {
-      var id = btn.getAttribute("data-id");
-      var val = parseInt(btn.getAttribute("data-val"));
-      scores["" + id] = val;
-      renderDafoStepper();
-      renderDafoStep();
-      return;
-    }
-  });
-}
-
-function escapeHtml(str) {
-  if (!str) return "";
-  return str.replace(/[&<>]/g, function(m) {
-    if (m === "&") return "&amp;";
-    if (m === "<") return "&lt;";
-    if (m === ">") return "&gt;";
-    return m;
-  });
 }
 
 window.cargarDafo = cargarDafo;
