@@ -4031,3 +4031,144 @@
     min-width: 60px;
   }
 }
+
+/* ==================== SINTESIS DE RESULTADOS FODA ==================== */
+
+.dafo-sintesis-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  box-shadow: 0 4px 16px -4px rgba(0,0,0,0.04);
+  margin-top: 1.5rem;
+  animation: slideUp 0.4s ease-out;
+}
+
+.dafo-sintesis-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 1.25rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  letter-spacing: -0.01em;
+}
+
+.dafo-sintesis-title i {
+  color: #2563eb;
+}
+
+.dafo-sintesis-table-wrapper {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.dafo-sintesis-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.dafo-sintesis-table th {
+  background: #f8fafc;
+  padding: 0.85rem 1rem;
+  text-align: left;
+  font-weight: 700;
+  color: #475569;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.dafo-sintesis-table td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.dafo-sintesis-table tbody tr:hover td {
+  background: #fafbff;
+}
+
+.dafo-sintesis-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.dafo-sintesis-score-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 160px;
+}
+
+.dafo-sintesis-bar {
+  flex: 1;
+  height: 8px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  overflow: hidden;
+  max-width: 120px;
+}
+
+.dafo-sintesis-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.dafo-sintesis-value {
+  font-weight: 700;
+  font-size: 0.95rem;
+  min-width: 40px;
+  text-align: right;
+}
+
+.dafo-sintesis-resumen {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.dafo-sintesis-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.dafo-sintesis-summary-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  text-align: center;
+}
+
+.dafo-sintesis-summary-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 0.25rem;
+}
+
+.dafo-sintesis-summary-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+@media (max-width: 600px) {
+  .dafo-sintesis-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .dafo-sintesis-table {
+    font-size: 0.8rem;
+  }
+  .dafo-sintesis-score-cell {
+    min-width: 120px;
+  }
+}

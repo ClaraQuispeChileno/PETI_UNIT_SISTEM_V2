@@ -9,54 +9,85 @@ var itemsA = [];
 var matrixScores = {};
 var dafoCompletado = false;
 var dafoModoActualizacion = false;
-var dafoMatrixGuardados = null;
+var dafoHayDatosGuardados = false;
+var currentStep = 1;
 
-var matrixConfig = [
-  { id:'FO', label:'FO - Fortalezas vs Oportunidades', desc:'Las fortalezas permiten aprovechar las oportunidades.', rows:function(){return itemsF;}, cols:function(){return itemsO;}, rowLabel:'Fortalezas', colLabel:'Oportunidades', rowKey:'fortaleza', colKey:'oportunidad',
-    rowPrefix:'F', colPrefix:'O', headerClass:'fortalezas-header', totalClass:'total-fo' },
-  { id:'FA', label:'FA - Fortalezas vs Amenazas', desc:'Las fortalezas evaden o reducen el efecto negativo de las amenazas.', rows:function(){return itemsF;}, cols:function(){return itemsA;}, rowLabel:'Fortalezas', colLabel:'Amenazas', rowKey:'fortaleza', colKey:'amenaza',
-    rowPrefix:'F', colPrefix:'A', headerClass:'fortalezas-header', totalClass:'total-fa' },
-  { id:'DO', label:'DO - Debilidades vs Oportunidades', desc:'Las debilidades pueden superarse aprovechando las oportunidades.', rows:function(){return itemsD;}, cols:function(){return itemsO;}, rowLabel:'Debilidades', colLabel:'Oportunidades', rowKey:'debilidad', colKey:'oportunidad',
-    rowPrefix:'D', colPrefix:'O', headerClass:'debilidades-header', totalClass:'total-do' },
-  { id:'DA', label:'DA - Debilidades vs Amenazas', desc:'Las debilidades intensifican notablemente el efecto negativo de las amenazas.', rows:function(){return itemsD;}, cols:function(){return itemsA;}, rowLabel:'Debilidades', colLabel:'Amenazas', rowKey:'debilidad', colKey:'amenaza',
-    rowPrefix:'D', colPrefix:'A', headerClass:'debilidades-header', totalClass:'total-da' }
+var stepConfig = [
+  { step:1, matrixId:'FO', title:'FORTALEZAS vs OPORTUNIDADES (FO)', desc:'Las fortalezas permiten aprovechar las oportunidades.', rows:function(){return itemsF;}, cols:function(){return itemsO;}, rowLabel:'Fortalezas', colLabel:'Oportunidades', rowPrefix:'F', colPrefix:'O', headerClass:'fortalezas-header', totalClass:'total-fo' },
+  { step:2, matrixId:'FA', title:'FORTALEZAS vs AMENAZAS (FA)', desc:'Las fortalezas evaden o reducen el efecto negativo de las amenazas.', rows:function(){return itemsF;}, cols:function(){return itemsA;}, rowLabel:'Fortalezas', colLabel:'Amenazas', rowPrefix:'F', colPrefix:'A', headerClass:'fortalezas-header', totalClass:'total-fa' },
+  { step:3, matrixId:'DO', title:'DEBILIDADES vs OPORTUNIDADES (DO)', desc:'Las debilidades pueden superarse aprovechando las oportunidades.', rows:function(){return itemsD;}, cols:function(){return itemsO;}, rowLabel:'Debilidades', colLabel:'Oportunidades', rowPrefix:'D', colPrefix:'O', headerClass:'debilidades-header', totalClass:'total-do' },
+  { step:4, matrixId:'DA', title:'DEBILIDADES vs AMENAZAS (DA)', desc:'Las debilidades intensifican notablemente el efecto negativo de las amenazas.', rows:function(){return itemsD;}, cols:function(){return itemsA;}, rowLabel:'Debilidades', colLabel:'Amenazas', rowPrefix:'D', colPrefix:'A', headerClass:'debilidades-header', totalClass:'total-da' }
 ];
 
-function getMatrixKey(matrixId, rowId, colId) {
-  return matrixId + '_' + rowId + '_' + colId;
-}
+function getStepCfg(step) { return stepConfig[step - 1]; }
 
-function getCellValue(matrixId, rowId, colId) {
-  if (!matrixScores[matrixId]) return '';
-  if (!matrixScores[matrixId][rowId]) return '';
-  var v = matrixScores[matrixId][rowId][colId];
+function getCellValue(mId, rId, cId) {
+  if (!matrixScores[mId] || !matrixScores[mId][rId]) return '';
+  var v = matrixScores[mId][rId][cId];
   return (v !== undefined && v !== null) ? v : '';
 }
 
-function setCellValue(matrixId, rowId, colId, val) {
-  if (!matrixScores[matrixId]) matrixScores[matrixId] = {};
-  if (!matrixScores[matrixId][rowId]) matrixScores[matrixId][rowId] = {};
-  matrixScores[matrixId][rowId][colId] = val;
+function setCellValue(mId, rId, cId, val) {
+  if (!matrixScores[mId]) matrixScores[mId] = {};
+  if (!matrixScores[mId][rId]) matrixScores[mId][rId] = {};
+  matrixScores[mId][rId][cId] = val;
 }
 
-function calcColTotal(matrixId, colId) {
-  var cfg = matrixConfig.find(function(m) { return m.id === matrixId; });
+function calcColTotal(mId, cId) {
+  var cfg = stepConfig.find(function(m){return m.matrixId===mId;});
   if (!cfg) return 0;
-  var rows = cfg.rows();
   var total = 0;
-  rows.forEach(function(row) {
-    var v = getCellValue(matrixId, row.id, colId);
+  cfg.rows().forEach(function(row){
+    var v = getCellValue(mId, row.id, cId);
     if (v !== '' && !isNaN(v)) total += parseInt(v);
   });
   return total;
 }
 
+function calcMatrixAvg(mId) {
+  var cfg = stepConfig.find(function(m){return m.matrixId===mId;});
+  if (!cfg) return 0;
+  var rows = cfg.rows(), cols = cfg.cols();
+  var sum = 0, count = 0;
+  rows.forEach(function(row){
+    cols.forEach(function(col){
+      var v = getCellValue(mId, row.id, col.id);
+      if (v !== '' && !isNaN(v)) { sum += parseInt(v); count++; }
+    });
+  });
+  return count > 0 ? (sum / count) / 4 * 100 : 0;
+}
+
+function calcSintesis() {
+  return {
+    FO: Math.round(calcMatrixAvg('FO')),
+    FA: Math.round(calcMatrixAvg('FA')),
+    DO: Math.round(calcMatrixAvg('DO')),
+    DA: Math.round(calcMatrixAvg('DA'))
+  };
+}
+
+function stepIsComplete(step) {
+  var cfg = getStepCfg(step);
+  if (!cfg) return false;
+  var rows = cfg.rows(), cols = cfg.cols();
+  if (rows.length === 0 || cols.length === 0) return false;
+  var allFilled = true;
+  rows.forEach(function(row){
+    cols.forEach(function(col){
+      var v = getCellValue(cfg.matrixId, row.id, col.id);
+      if (v === '' || v === null || v === undefined) allFilled = false;
+    });
+  });
+  return allFilled;
+}
+
 function escapeHtml(str) {
   if (!str) return '';
-  return str.replace(/[&<>]/g, function(m) {
-    if (m === '&') return '&amp;';
-    if (m === '<') return '&lt;';
-    if (m === '>') return '&gt;';
+  return str.replace(/[&<>]/g, function(m){
+    if (m==='&') return '&amp;';
+    if (m==='<') return '&lt;';
+    if (m==='>') return '&gt;';
     return m;
   });
 }
@@ -64,6 +95,24 @@ function escapeHtml(str) {
 function truncateText(text, maxLen) {
   if (!text) return '';
   return text.length > maxLen ? text.substring(0, maxLen) + '...' : text;
+}
+
+function hasMatrixData() {
+  if (!matrixScores || typeof matrixScores !== 'object') return false;
+  for (var mid in matrixScores) {
+    if (!matrixScores.hasOwnProperty(mid)) continue;
+    var rows = matrixScores[mid];
+    if (typeof rows !== 'object') continue;
+    for (var rid in rows) {
+      if (!rows.hasOwnProperty(rid)) continue;
+      var cols = rows[rid];
+      if (typeof cols !== 'object') continue;
+      for (var cid in cols) {
+        if (cols.hasOwnProperty(cid) && cols[cid] !== null && cols[cid] !== undefined) return true;
+      }
+    }
+  }
+  return false;
 }
 
 function cargarDafo() {
@@ -111,19 +160,21 @@ function cargarDafo() {
       dafoCompletado = itemsF.length > 0 || itemsD.length > 0 || itemsO.length > 0 || itemsA.length > 0;
 
       var pcRes = results[5].data;
-      if (pcRes && pcRes.contenido && pcRes.contenido.matrixScores) {
-        matrixScores = pcRes.contenido.matrixScores || {};
-        dafoMatrixGuardados = pcRes.contenido.matrixScores || null;
-      } else if (pcRes && pcRes.contenido && pcRes.contenido.scores) {
-        var oldScores = pcRes.contenido.scores || {};
-        matrixScores = {};
-        dafoMatrixGuardados = null;
-      } else {
-        matrixScores = {};
-        dafoMatrixGuardados = null;
+      dafoHayDatosGuardados = false;
+      matrixScores = {};
+
+      if (pcRes && pcRes.contenido) {
+        if (pcRes.contenido.matrixScores) {
+          matrixScores = JSON.parse(JSON.stringify(pcRes.contenido.matrixScores));
+          dafoHayDatosGuardados = hasMatrixData();
+        } else if (pcRes.contenido.scores) {
+          matrixScores = {};
+          dafoHayDatosGuardados = false;
+        }
       }
 
       dafoModoActualizacion = false;
+      currentStep = 1;
       renderDafoUI();
     }).catch(function(e) { console.error("Error cargarDafo:", e); });
   } catch(e2) { console.error("Error cargarDafo:", e2); }
@@ -170,29 +221,30 @@ function renderDafoUI() {
 
   if (!dafoModoActualizacion) {
     renderFactoresGrid();
-    renderMatrixResults();
+    renderSintesisResultados();
   }
 
   var wizard = document.getElementById("dafoWizardContainer");
   if (dafoModoActualizacion) {
     if (wizard) wizard.style.display = "block";
-    renderMatrices();
+    renderStepper();
+    renderStep();
   } else {
     if (wizard) wizard.style.display = "none";
   }
 }
 
+// ==================== VIEW MODE: FACTORES + SINTESIS ====================
+
 function renderFactoresGrid() {
   var grid = document.getElementById("dafoFactoresGrid");
   if (!grid) return;
-
   var cuadros = [
     { items: itemsF, label: "Fortalezas", icon: "bi-shield-check-fill", color: "#059669", bg: "#ecfdf5", border: "#a7f3d0" },
     { items: itemsD, label: "Debilidades", icon: "bi-exclamation-triangle-fill", color: "#dc2626", bg: "#fef2f2", border: "#fca5a5" },
     { items: itemsO, label: "Oportunidades", icon: "bi-sun-fill", color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe" },
     { items: itemsA, label: "Amenazas", icon: "bi-cloud-lightning-fill", color: "#d97706", bg: "#fffbeb", border: "#fde68a" }
   ];
-
   var html = '<div class="dafo-factores-grid">';
   cuadros.forEach(function(c) {
     html += '<div class="dafo-factores-card" style="border-color:' + c.border + ';">';
@@ -215,144 +267,179 @@ function renderFactoresGrid() {
   grid.innerHTML = html;
 }
 
-function renderMatrixResults() {
+function renderSintesisResultados() {
   var container = document.getElementById("dafoResultadosGuardados");
-  var section = document.getElementById("dafoFactoresSection");
   if (!container) return;
 
-  if (!dafoMatrixGuardados) {
+  if (!dafoHayDatosGuardados || !hasMatrixData()) {
     container.style.display = "none";
     container.innerHTML = "";
-    if (section) section.classList.remove("dafo-factores-section-results");
     return;
   }
 
-  var html = '<div class="dafo-matrix-section">';
-  html += '<h3 class="dafo-matrix-section-title"><i class="bi bi-table"></i> Matriz FODA - Resultados Guardados</h3>';
-  html += '<div class="dafo-matrices-grid">';
+  var s = calcSintesis();
+  var relaciones = [
+    { rel: "FO", label: "Fortalezas + Oportunidades", tipo: "Estrategia Ofensiva", punt: s.FO, desc: "Deber\u00e1 adoptar estrategias de crecimiento", color: "#059669" },
+    { rel: "FA", label: "Fortalezas + Amenazas", tipo: "Estrategia Defensiva", punt: s.FA, desc: "La empresa est\u00e1 preparada para enfrentarse a las amenazas", color: "#2563eb" },
+    { rel: "DO", label: "Debilidades + Oportunidades", tipo: "Estrategia de Reorientaci\u00f3n", punt: s.DO, desc: "La empresa no puede aprovechar las oportunidades porque carece de preparaci\u00f3n adecuada", color: "#d97706" },
+    { rel: "DA", label: "Debilidades + Amenazas", tipo: "Estrategia de Supervivencia", punt: s.DA, desc: "Se enfrenta a amenazas externas sin las fortalezas necesarias para luchar con la competencia", color: "#dc2626" }
+  ];
 
-  matrixConfig.forEach(function(cfg) {
-    html += renderMatrixTable(cfg, true);
+  var html = '<div class="dafo-sintesis-card">';
+  html += '<h3 class="dafo-sintesis-title"><i class="bi bi-bar-chart-fill"></i> S\u00cdNTESIS DE RESULTADOS</h3>';
+  html += '<div class="dafo-sintesis-table-wrapper"><table class="dafo-sintesis-table">';
+  html += '<thead><tr><th>Relaciones</th><th>Tipolog\u00eda de estrategia</th><th>Puntuaci\u00f3n</th><th>Descripci\u00f3n</th></tr></thead><tbody>';
+  relaciones.forEach(function(r) {
+    var barColor = r.punt >= 70 ? '#059669' : (r.punt >= 40 ? '#d97706' : '#dc2626');
+    html += '<tr>';
+    html += '<td><strong>' + r.rel + '</strong><br><span style="font-size:0.72rem;color:#64748b;">' + r.label + '</span></td>';
+    html += '<td>' + r.tipo + '</td>';
+    html += '<td><div class="dafo-sintesis-score-cell"><div class="dafo-sintesis-bar"><div class="dafo-sintesis-fill" style="width:' + r.punt + '%;background:' + barColor + ';"></div></div><span class="dafo-sintesis-value" style="color:' + barColor + ';">' + r.punt + '%</span></div></td>';
+    html += '<td style="font-size:0.82rem;color:#64748b;line-height:1.4;">' + r.desc + '</td>';
+    html += '</tr>';
   });
-
+  html += '</tbody></table></div>';
+  html += '<div class="dafo-sintesis-resumen">';
+  html += '<div class="dafo-sintesis-summary-grid">';
+  html += '<div class="dafo-sintesis-summary-item"><span class="dafo-sintesis-summary-label">Fortalezas</span><span class="dafo-sintesis-summary-value">' + itemsF.length + '</span></div>';
+  html += '<div class="dafo-sintesis-summary-item"><span class="dafo-sintesis-summary-label">Debilidades</span><span class="dafo-sintesis-summary-value">' + itemsD.length + '</span></div>';
+  html += '<div class="dafo-sintesis-summary-item"><span class="dafo-sintesis-summary-label">Oportunidades</span><span class="dafo-sintesis-summary-value">' + itemsO.length + '</span></div>';
+  html += '<div class="dafo-sintesis-summary-item"><span class="dafo-sintesis-summary-label">Amenazas</span><span class="dafo-sintesis-summary-value">' + itemsA.length + '</span></div>';
   html += '</div></div>';
+  html += '</div>';
 
   container.innerHTML = html;
   container.style.display = "block";
-  if (section) section.classList.add("dafo-factores-section-results");
 }
 
-function renderMatrixTable(cfg, readOnly) {
-  var rows = cfg.rows();
-  var cols = cfg.cols();
+// ==================== WIZARD MODE: STEPPER + MATRIX STEPS ====================
 
-  if (rows.length === 0 || cols.length === 0) {
-    return '<div class="dafo-matrix-empty">No hay suficientes factores para la matriz ' + cfg.id + '.</div>';
+function renderStepper() {
+  var steps = document.querySelectorAll("#dafoStepper .stepper-step");
+  var completos = [false, false, false, false, false];
+  for (var s = 1; s <= 4; s++) {
+    completos[s] = stepIsComplete(s);
   }
 
-  var html = '<div class="dafo-matrix-card">';
-  html += '<div class="dafo-matrix-header ' + cfg.headerClass + '">';
-  html += '<div class="dafo-matrix-title">' + cfg.label + '</div>';
-  html += '<div class="dafo-matrix-desc">' + cfg.desc + '</div>';
-  html += '</div>';
-
-  html += '<div class="dafo-matrix-table-wrapper">';
-  html += '<table class="dafo-matrix-table">';
-  html += '<thead><tr><th class="dafo-matrix-row-header">' + cfg.rowLabel + ' / ' + cfg.colLabel + '</th>';
-
-  cols.forEach(function(col, ci) {
-    var colLabel = cfg.colPrefix + (ci + 1);
-    html += '<th class="dafo-matrix-col-header" title="' + escapeHtml(col.descripcion) + '">' + colLabel + '<br><span class="dafo-matrix-col-desc">' + escapeHtml(truncateText(col.descripcion, 40)) + '</span></th>';
+  var stepLabels = ['FO', 'FA', 'DO', 'DA'];
+  steps.forEach(function(el) {
+    var s = parseInt(el.getAttribute("data-step"));
+    el.classList.remove("active", "completed", "locked");
+    var unlocked = true;
+    for (var p = 1; p < s; p++) {
+      if (!completos[p]) { unlocked = false; break; }
+    }
+    el.querySelector(".stepper-circle").innerText = stepLabels[s - 1];
+    if (s === currentStep) el.classList.add("active");
+    else if (completos[s]) el.classList.add("completed");
+    else if (!unlocked) el.classList.add("locked");
   });
 
+  var line = document.getElementById("dafoStepperProgressLine");
+  if (line) {
+    var c = 0;
+    for (var s2 = 1; s2 <= 4; s2++) if (completos[s2]) c++;
+    line.style.width = Math.min((c / 3) * 100, 100) + "%";
+  }
+
+  var labelEl = document.getElementById("dafoStepperCurrentLabel");
+  var cfg = getStepCfg(currentStep);
+  if (labelEl && cfg) {
+    labelEl.innerHTML = '<i class="bi bi-arrow-right-circle-fill"></i> Paso ' + cfg.step + ' de 4: ' + cfg.matrixId;
+  }
+
+  var stepperContainer = document.querySelector("#dafoWizardContainer > .wizard-stepper-container");
+  if (stepperContainer) stepperContainer.style.display = "";
+}
+
+function renderStep() {
+  var cfg = getStepCfg(currentStep);
+  if (!cfg) return;
+
+  var tituloEl = document.getElementById("dafoBloqueTitulo");
+  if (tituloEl) tituloEl.textContent = cfg.title + ' — PUNTUACI\u00d3N (0-4)';
+
+  var stepperContainer = document.querySelector("#dafoWizardContainer > .wizard-stepper-container");
+  if (stepperContainer) stepperContainer.style.display = "";
+
+  var content = document.getElementById("dafoStepContent");
+  if (!content) return;
+
+  setNextButtonLabel(currentStep);
+
+  var rows = cfg.rows();
+  var cols = cfg.cols();
+  var mId = cfg.matrixId;
+
+  if (rows.length === 0 || cols.length === 0) {
+    content.innerHTML = '<div style="text-align:center;color:#94a3b8;padding:2.5rem;"><i class="bi bi-inbox" style="font-size:2rem;display:block;margin-bottom:0.75rem;"></i>No hay suficientes factores para esta matriz.</div>';
+    updateNavButtons(false);
+    return;
+  }
+
+  // Count filled cells
+  var filledCount = 0, totalCells = rows.length * cols.length;
+  rows.forEach(function(row) {
+    cols.forEach(function(col) {
+      var v = getCellValue(mId, row.id, col.id);
+      if (v !== '' && v !== null && v !== undefined) filledCount++;
+    });
+  });
+
+  // Build matrix table
+  var html = '<div class="dafo-matrix-card" style="box-shadow:none;border:none;">';
+  html += '<div class="dafo-matrix-header ' + cfg.headerClass + '" style="border-radius:0.75rem 0.75rem 0 0;">';
+  html += '<div class="dafo-matrix-title">' + cfg.title + '</div>';
+  html += '<div class="dafo-matrix-desc">' + cfg.desc + '</div>';
+  html += '</div><div class="dafo-matrix-table-wrapper">';
+  html += '<table class="dafo-matrix-table">';
+  html += '<thead><tr><th class="dafo-matrix-row-header">' + cfg.rowLabel + ' / ' + cfg.colLabel + '</th>';
+  cols.forEach(function(col, ci) {
+    html += '<th class="dafo-matrix-col-header" title="' + escapeHtml(col.descripcion) + '">' + cfg.colPrefix + (ci+1) + '<br><span class="dafo-matrix-col-desc">' + escapeHtml(truncateText(col.descripcion, 35)) + '</span></th>';
+  });
   html += '<th class="dafo-matrix-total-header ' + cfg.totalClass + '">Total</th>';
   html += '</tr></thead><tbody>';
 
   rows.forEach(function(row, ri) {
-    var rowLabel = cfg.rowPrefix + (ri + 1);
-    html += '<tr>';
-    html += '<td class="dafo-matrix-row-label" title="' + escapeHtml(row.descripcion) + '"><strong>' + rowLabel + '</strong><br><span class="dafo-matrix-row-desc">' + escapeHtml(truncateText(row.descripcion, 40)) + '</span></td>';
-
     var rowTotal = 0;
+    html += '<tr><td class="dafo-matrix-row-label" title="' + escapeHtml(row.descripcion) + '"><strong>' + cfg.rowPrefix + (ri+1) + '</strong><br><span class="dafo-matrix-row-desc">' + escapeHtml(truncateText(row.descripcion, 35)) + '</span></td>';
     cols.forEach(function(col, ci) {
-      var key = getMatrixKey(cfg.id, row.id, col.id);
-      var val = getCellValue(cfg.id, row.id, col.id);
+      var val = getCellValue(mId, row.id, col.id);
       var numVal = (val !== '' && !isNaN(val)) ? parseInt(val) : 0;
       rowTotal += numVal;
-
-      if (readOnly) {
-        html += '<td class="dafo-matrix-cell dafo-matrix-cell-readonly">' + (val !== '' ? val : '-') + '</td>';
-      } else {
-        html += '<td class="dafo-matrix-cell">';
-        html += '<input type="number" class="dafo-matrix-input" min="0" max="4" step="1" ';
-        html += 'data-matrix="' + cfg.id + '" data-row-id="' + row.id + '" data-col-id="' + col.id + '" ';
-        html += 'value="' + (val !== '' ? val : '') + '" placeholder="0">';
-        html += '</td>';
-      }
+      html += '<td class="dafo-matrix-cell">';
+      html += '<input type="number" class="dafo-matrix-input" min="0" max="4" step="1" ';
+      html += 'data-matrix="' + mId + '" data-row-id="' + row.id + '" data-col-id="' + col.id + '" ';
+      html += 'value="' + (val !== '' ? val : '') + '" placeholder="0">';
+      html += '</td>';
     });
-
-    html += '<td class="dafo-matrix-total-cell ' + cfg.totalClass + '">' + rowTotal + '</td>';
-    html += '</tr>';
+    html += '<td class="dafo-matrix-total-cell ' + cfg.totalClass + '">' + rowTotal + '</td></tr>';
   });
 
-  html += '<tr class="dafo-matrix-total-row">';
-  html += '<td class="dafo-matrix-row-label"><strong>Total</strong></td>';
-
+  // Total row
+  html += '<tr class="dafo-matrix-total-row"><td class="dafo-matrix-row-label"><strong>Total</strong></td>';
   cols.forEach(function(col, ci) {
-    var colTotal = calcColTotal(cfg.id, col.id);
-    html += '<td class="dafo-matrix-total-cell ' + cfg.totalClass + '">' + colTotal + '</td>';
+    html += '<td class="dafo-matrix-total-cell ' + cfg.totalClass + '">' + calcColTotal(mId, col.id) + '</td>';
   });
-
   var grandTotal = 0;
   rows.forEach(function(row) {
     cols.forEach(function(col) {
-      var val = getCellValue(cfg.id, row.id, col.id);
-      if (val !== '' && !isNaN(val)) grandTotal += parseInt(val);
+      var v = getCellValue(mId, row.id, col.id);
+      if (v !== '' && !isNaN(v)) grandTotal += parseInt(v);
     });
   });
-  html += '<td class="dafo-matrix-grand-total ' + cfg.totalClass + '">' + grandTotal + '</td>';
-  html += '</tr>';
+  html += '<td class="dafo-matrix-grand-total ' + cfg.totalClass + '">' + grandTotal + '</td></tr>';
+  html += '</tbody></table></div></div>';
 
-  html += '</tbody></table>';
-  html += '</div></div>';
-
-  return html;
-}
-
-function renderMatrices() {
-  var content = document.getElementById("dafoStepContent");
-  if (!content) return;
-
-  var tituloEl = document.getElementById("dafoBloqueTitulo");
-  if (tituloEl) tituloEl.textContent = "MATRIZ FODA — EVALUACIÓN CRUZADA (0-4)";
-
-  var stepperContainer = document.querySelector("#dafoWizardContainer > .wizard-stepper-container");
-  if (stepperContainer) stepperContainer.style.display = "none";
-
-  if (itemsF.length === 0 || itemsD.length === 0 || itemsO.length === 0 || itemsA.length === 0) {
-    content.innerHTML = '<div style="text-align:center;color:#94a3b8;padding:2.5rem;"><i class="bi bi-inbox" style="font-size:2rem;display:block;margin-bottom:0.75rem;"></i>Se requieren factores de los 4 tipos (Fortalezas, Debilidades, Oportunidades, Amenazas) para generar la Matriz FODA.<br>Complete los módulos de análisis previos (Cadena de Valor, BCG, Porter, PEST) para registrar los factores necesarios.</div>';
-    var nextBtn = document.getElementById("dafoNextBtn");
-    if (nextBtn) nextBtn.disabled = true;
-    return;
-  }
-
-  var html = '<div class="dafo-matrices-section">';
-  html += '<div class="dafo-matrices-grid">';
-
-  matrixConfig.forEach(function(cfg) {
-    html += renderMatrixTable(cfg, false);
-  });
-
-  html += '</div></div>';
-
-  html += '<div class="dafo-escala-leyenda" style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid #f1f5f9;">';
+  // Legend
+  html += '<div class="dafo-escala-leyenda" style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid #f1f5f9;">';
   html += '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;font-size:0.78rem;color:#64748b;">';
   var escalaItems = [
-    { val: 0, label: 'En total desacuerdo' },
-    { val: 1, label: 'No está de acuerdo' },
-    { val: 2, label: 'Está de acuerdo' },
-    { val: 3, label: 'Bastante de acuerdo' },
-    { val: 4, label: 'En total acuerdo' }
+    { val:0, label:'En total desacuerdo' },
+    { val:1, label:'No est\u00e1 de acuerdo' },
+    { val:2, label:'Est\u00e1 de acuerdo' },
+    { val:3, label:'Bastante de acuerdo' },
+    { val:4, label:'En total acuerdo' }
   ];
   escalaItems.forEach(function(opt, idx) {
     html += '<span><strong>' + opt.val + '</strong> = ' + opt.label + '</span>';
@@ -362,98 +449,49 @@ function renderMatrices() {
 
   content.innerHTML = html;
 
+  var countEl = document.getElementById("dafoItemsCount");
+  if (countEl) countEl.textContent = filledCount + '/' + totalCells + ' celdas';
+
+  var infoEl = document.getElementById("dafoStepInfo");
+  if (infoEl) {
+    if (filledCount === totalCells) infoEl.textContent = "Todos los valores han sido asignados";
+    else infoEl.textContent = "Asigne un valor (0-4) a cada celda de la matriz";
+  }
+
+  updateNavButtons(filledCount === totalCells);
+  setupMatrixInputListeners();
+}
+
+function setNextButtonLabel(step) {
+  var nextBtn = document.getElementById("dafoNextBtn");
+  if (!nextBtn) return;
+  if (step === 4) {
+    nextBtn.innerHTML = 'Finalizar <i class="bi bi-check-lg"></i>';
+    nextBtn.classList.remove("btn-primary");
+    nextBtn.classList.add("btn-primary-solid");
+  } else {
+    nextBtn.innerHTML = 'Siguiente <i class="bi bi-arrow-right"></i>';
+    nextBtn.classList.remove("btn-primary-solid");
+    nextBtn.classList.add("btn-primary");
+  }
+}
+
+function updateNavButtons(allFilled) {
   var prevBtn = document.getElementById("dafoPrevBtn");
   var nextBtn = document.getElementById("dafoNextBtn");
   var cancelBtn = document.getElementById("dafoCancelBtn");
 
-  if (prevBtn) prevBtn.disabled = true;
-  if (nextBtn) {
-    nextBtn.disabled = false;
-    nextBtn.innerHTML = 'Mostrar resultados <i class="bi bi-bar-chart-fill"></i>';
-  }
+  if (prevBtn) prevBtn.disabled = (currentStep === 1);
   if (cancelBtn) cancelBtn.style.display = dafoModoActualizacion ? "" : "none";
-
-  var infoEl = document.getElementById("dafoStepInfo");
-  if (infoEl) infoEl.textContent = "Asigne una puntuación (0-4) a cada relación de la matriz";
-
-  var countEl = document.getElementById("dafoItemsCount");
-  if (countEl) countEl.textContent = (itemsF.length + itemsD.length + itemsO.length + itemsA.length) + " factores";
-
-  updateMatrixTotals();
-  setupMatrixInputListeners();
-}
-
-function updateMatrixTotals() {
-  matrixConfig.forEach(function(cfg) {
-    var rows = cfg.rows();
-    var cols = cfg.cols();
-    var table = document.querySelector('.dafo-matrix-card:has(.dafo-matrix-header.' + cfg.headerClass + ') table.dafo-matrix-table');
-    if (!table) return;
-
-    var tbody = table.querySelector('tbody');
-    if (!tbody) return;
-
-    var rowEls = tbody.querySelectorAll('tr:not(.dafo-matrix-total-row)');
-    rowEls.forEach(function(rowEl, ri) {
-      if (ri >= rows.length) return;
-      var row = rows[ri];
-      if (!row) return;
-      var cellEls = rowEl.querySelectorAll('.dafo-matrix-cell');
-      var rowTotal = 0;
-      cellEls.forEach(function(cellEl, ci) {
-        if (ci >= cols.length) return;
-        var input = cellEl.querySelector('.dafo-matrix-input');
-        if (input) {
-          var v = input.value;
-          if (v !== '' && !isNaN(v)) rowTotal += parseInt(v);
-        }
-      });
-      var totalCell = rowEl.querySelector('.dafo-matrix-total-cell');
-      if (totalCell) totalCell.textContent = rowTotal;
-    });
-
-    var totalRow = tbody.querySelector('.dafo-matrix-total-row');
-    if (totalRow) {
-      var colTotalCells = totalRow.querySelectorAll('.dafo-matrix-total-cell');
-      cols.forEach(function(col, ci) {
-        if (ci >= colTotalCells.length - 1) return;
-        var colTotal = 0;
-        rowEls.forEach(function(rowEl, ri) {
-          if (ri >= rows.length) return;
-          var cellEls = rowEl.querySelectorAll('.dafo-matrix-cell');
-          if (ci >= cellEls.length) return;
-          var input = cellEls[ci] ? cellEls[ci].querySelector('.dafo-matrix-input') : null;
-          if (input) {
-            var v = input.value;
-            if (v !== '' && !isNaN(v)) colTotal += parseInt(v);
-          }
-        });
-        colTotalCells[ci].textContent = colTotal;
-      });
-
-      var grandTotalCell = totalRow.querySelector('.dafo-matrix-grand-total');
-      if (grandTotalCell) {
-        var grandTotal = 0;
-        rowEls.forEach(function(rowEl) {
-          var cellEls = rowEl.querySelectorAll('.dafo-matrix-cell');
-          cellEls.forEach(function(cellEl) {
-            var input = cellEl.querySelector('.dafo-matrix-input');
-            if (input) {
-              var v = input.value;
-              if (v !== '' && !isNaN(v)) grandTotal += parseInt(v);
-            }
-          });
-        });
-        grandTotalCell.textContent = grandTotal;
-      }
-    }
-  });
+  if (nextBtn) {
+    nextBtn.disabled = !allFilled;
+    setNextButtonLabel(currentStep);
+  }
 }
 
 function setupMatrixInputListeners() {
-  var inputs = document.querySelectorAll('.dafo-matrix-input');
-  inputs.forEach(function(input) {
-    input.addEventListener('input', function() {
+  document.querySelectorAll('.dafo-matrix-input').forEach(function(input) {
+    input._listener = function() {
       var val = this.value;
       if (val !== '') {
         var num = parseInt(val);
@@ -461,34 +499,114 @@ function setupMatrixInputListeners() {
         else if (num > 4) this.value = 4;
         else this.value = num;
       }
-      var matrixId = this.getAttribute('data-matrix');
-      var rowId = this.getAttribute('data-row-id');
-      var colId = this.getAttribute('data-col-id');
-      var newVal = this.value !== '' ? parseInt(this.value) : null;
-      setCellValue(matrixId, rowId, colId, newVal);
-      updateMatrixTotals();
-    });
-
+      var mId = this.getAttribute('data-matrix');
+      var rId = this.getAttribute('data-row-id');
+      var cId = this.getAttribute('data-col-id');
+      setCellValue(mId, rId, cId, this.value !== '' ? parseInt(this.value) : null);
+      updateStepTotals();
+      updateNavButtons(stepIsComplete(currentStep));
+    };
+    input.addEventListener('input', input._listener);
     input.addEventListener('blur', function() {
       if (this.value === '') this.value = '';
-    });
-
-    input.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') {
-        this.blur();
-        var nextInput = this.closest('td').nextElementSibling;
-        if (nextInput) {
-          var nextInp = nextInput.querySelector('.dafo-matrix-input');
-          if (nextInp) nextInp.focus();
-        }
-      }
     });
   });
 }
 
-function mostrarResultadosMatriz() {
-  var factoresSection = document.getElementById("dafoFactoresSection");
+function updateStepTotals() {
+  var cfg = getStepCfg(currentStep);
+  if (!cfg) return;
+  var mId = cfg.matrixId;
+  var rows = cfg.rows(), cols = cfg.cols();
+  var table = document.querySelector('#dafoStepContent .dafo-matrix-table');
+  if (!table) return;
+  var tbody = table.querySelector('tbody');
+  if (!tbody) return;
+  var rowEls = tbody.querySelectorAll('tr:not(.dafo-matrix-total-row)');
+  var filledCount = 0, totalCells = rows.length * cols.length;
+
+  rowEls.forEach(function(rowEl, ri) {
+    if (ri >= rows.length) return;
+    var cellEls = rowEl.querySelectorAll('.dafo-matrix-cell');
+    var rowTotal = 0;
+    cellEls.forEach(function(cellEl, ci) {
+      if (ci >= cols.length) return;
+      var inp = cellEl.querySelector('.dafo-matrix-input');
+      if (inp) {
+        var v = inp.value;
+        if (v !== '' && !isNaN(v)) { rowTotal += parseInt(v); filledCount++; }
+      }
+    });
+    var totalCell = rowEl.querySelector('.dafo-matrix-total-cell');
+    if (totalCell) totalCell.textContent = rowTotal;
+  });
+
+  var totalRow = tbody.querySelector('.dafo-matrix-total-row');
+  if (totalRow) {
+    var colTotalCells = totalRow.querySelectorAll('.dafo-matrix-total-cell');
+    cols.forEach(function(col, ci) {
+      if (ci >= colTotalCells.length - 1) return;
+      var ct = 0;
+      rowEls.forEach(function(rowEl, ri) {
+        if (ri >= rows.length) return;
+        var cellEls = rowEl.querySelectorAll('.dafo-matrix-cell');
+        if (ci >= cellEls.length) return;
+        var inp = cellEls[ci] ? cellEls[ci].querySelector('.dafo-matrix-input') : null;
+        if (inp) {
+          var v = inp.value;
+          if (v !== '' && !isNaN(v)) ct += parseInt(v);
+        }
+      });
+      colTotalCells[ci].textContent = ct;
+    });
+
+    var grandCell = totalRow.querySelector('.dafo-matrix-grand-total');
+    if (grandCell) {
+      var gt = 0;
+      rowEls.forEach(function(rowEl) {
+        rowEl.querySelectorAll('.dafo-matrix-cell').forEach(function(cellEl) {
+          var inp = cellEl.querySelector('.dafo-matrix-input');
+          if (inp) {
+            var v = inp.value;
+            if (v !== '' && !isNaN(v)) gt += parseInt(v);
+          }
+        });
+      });
+      grandCell.textContent = gt;
+    }
+  }
+
+  var countEl = document.getElementById("dafoItemsCount");
+  if (countEl) countEl.textContent = filledCount + '/' + totalCells + ' celdas';
+}
+
+// ==================== NAVEGACION ====================
+
+function navegarAnterior() {
+  if (currentStep > 1) {
+    currentStep--;
+    renderStepper();
+    renderStep();
+  }
+}
+
+function navegarSiguiente() {
+  if (!stepIsComplete(currentStep)) {
+    if (typeof showToast !== "undefined") showToast("Complete todos los valores de la matriz antes de continuar.", "error");
+    return;
+  }
+  if (currentStep < 4) {
+    currentStep++;
+    renderStepper();
+    renderStep();
+  } else {
+    mostrarSintesisResultados();
+  }
+}
+
+function mostrarSintesisResultados() {
   var wizard = document.getElementById("dafoWizardContainer");
+  var factoresSection = document.getElementById("dafoFactoresSection");
   var resultadosGuardados = document.getElementById("dafoResultadosGuardados");
 
   if (wizard) wizard.style.display = "none";
@@ -499,19 +617,40 @@ function mostrarResultadosMatriz() {
 
   renderFactoresGrid();
 
-  var html = '<div class="dafo-matrix-section">';
-  html += '<h3 class="dafo-matrix-section-title"><i class="bi bi-table"></i> Matriz FODA - Resultados</h3>';
-  html += '<div class="dafo-matrices-grid">';
+  var s = calcSintesis();
+  var relaciones = [
+    { rel: "FO", label: "Fortalezas + Oportunidades", tipo: "Estrategia Ofensiva", punt: s.FO, desc: "Deber\u00e1 adoptar estrategias de crecimiento", color: "#059669" },
+    { rel: "FA", label: "Fortalezas + Amenazas", tipo: "Estrategia Defensiva", punt: s.FA, desc: "La empresa est\u00e1 preparada para enfrentarse a las amenazas", color: "#2563eb" },
+    { rel: "DO", label: "Debilidades + Oportunidades", tipo: "Estrategia de Reorientaci\u00f3n", punt: s.DO, desc: "La empresa no puede aprovechar las oportunidades porque carece de preparaci\u00f3n adecuada", color: "#d97706" },
+    { rel: "DA", label: "Debilidades + Amenazas", tipo: "Estrategia de Supervivencia", punt: s.DA, desc: "Se enfrenta a amenazas externas sin las fortalezas necesarias para luchar con la competencia", color: "#dc2626" }
+  ];
 
-  matrixConfig.forEach(function(cfg) {
-    html += renderMatrixTable(cfg, true);
+  var html = '<div class="dafo-sintesis-card">';
+  html += '<h3 class="dafo-sintesis-title"><i class="bi bi-bar-chart-fill"></i> S\u00cdNTESIS DE RESULTADOS</h3>';
+  html += '<div class="dafo-sintesis-table-wrapper"><table class="dafo-sintesis-table">';
+  html += '<thead><tr><th>Relaciones</th><th>Tipolog\u00eda de estrategia</th><th>Puntuaci\u00f3n</th><th>Descripci\u00f3n</th></tr></thead><tbody>';
+  relaciones.forEach(function(r) {
+    var barColor = r.punt >= 70 ? '#059669' : (r.punt >= 40 ? '#d97706' : '#dc2626');
+    html += '<tr>';
+    html += '<td><strong>' + r.rel + '</strong><br><span style="font-size:0.72rem;color:#64748b;">' + r.label + '</span></td>';
+    html += '<td>' + r.tipo + '</td>';
+    html += '<td><div class="dafo-sintesis-score-cell"><div class="dafo-sintesis-bar"><div class="dafo-sintesis-fill" style="width:' + r.punt + '%;background:' + barColor + ';"></div></div><span class="dafo-sintesis-value" style="color:' + barColor + ';">' + r.punt + '%</span></div></td>';
+    html += '<td style="font-size:0.82rem;color:#64748b;line-height:1.4;">' + r.desc + '</td>';
+    html += '</tr>';
   });
-
+  html += '</tbody></table></div>';
+  html += '<div class="dafo-sintesis-resumen">';
+  html += '<div class="dafo-sintesis-summary-grid">';
+  html += '<div class="dafo-sintesis-summary-item"><span class="dafo-sintesis-summary-label">Fortalezas</span><span class="dafo-sintesis-summary-value">' + itemsF.length + '</span></div>';
+  html += '<div class="dafo-sintesis-summary-item"><span class="dafo-sintesis-summary-label">Debilidades</span><span class="dafo-sintesis-summary-value">' + itemsD.length + '</span></div>';
+  html += '<div class="dafo-sintesis-summary-item"><span class="dafo-sintesis-summary-label">Oportunidades</span><span class="dafo-sintesis-summary-value">' + itemsO.length + '</span></div>';
+  html += '<div class="dafo-sintesis-summary-item"><span class="dafo-sintesis-summary-label">Amenazas</span><span class="dafo-sintesis-summary-value">' + itemsA.length + '</span></div>';
   html += '</div></div>';
 
   html += '<div id="dafoSaveSection" style="display:flex;justify-content:center;gap:1rem;margin-top:1.5rem;padding-top:1.5rem;border-top:2px solid #e2e8f0;">';
-  html += '<button id="dafoGuardarActualizacionBtn" class="btn-primary" style="background:#2563eb;color:white;padding:0.7rem 2rem;font-weight:700;font-size:0.95rem;"><i class="bi bi-check-lg"></i> Guardar actualización</button>';
-  html += '<button id="dafoCancelarActualizacionBtn" class="btn-secondary" style="padding:0.7rem 2rem;font-weight:600;font-size:0.95rem;"><i class="bi bi-x-lg"></i> Cancelar actualización</button>';
+  html += '<button id="dafoGuardarActualizacionBtn" class="btn-primary" style="background:#2563eb;color:white;padding:0.7rem 2rem;font-weight:700;font-size:0.95rem;"><i class="bi bi-check-lg"></i> Guardar actualizaci\u00f3n</button>';
+  html += '<button id="dafoCancelarActualizacionBtn" class="btn-secondary" style="padding:0.7rem 2rem;font-weight:600;font-size:0.95rem;"><i class="bi bi-x-lg"></i> Cancelar actualizaci\u00f3n</button>';
+  html += '</div>';
   html += '</div>';
 
   if (resultadosGuardados) {
@@ -527,8 +666,10 @@ function mostrarResultadosMatriz() {
   var alertBanner = document.getElementById("dafoAlertBanner");
   var alertText = document.getElementById("dafoAlertText");
   if (alertBanner) { alertBanner.style.display = "flex"; alertBanner.style.justifyContent = "center"; }
-  if (alertText) alertText.textContent = "Revise los resultados de la Matriz FODA antes de guardar o cancelar la actualización.";
+  if (alertText) alertText.textContent = "Revise los resultados de la Matriz FODA antes de guardar o cancelar la actualizaci\u00f3n.";
 }
+
+// ==================== GUARDAR / CANCELAR ====================
 
 function guardarDafo() {
   if (typeof currentPlanId === "undefined" || !currentPlanId) {
@@ -536,8 +677,10 @@ function guardarDafo() {
     return;
   }
 
+  var s = calcSintesis();
   var contenido = {
     matrixScores: matrixScores,
+    sintesis: s,
     total_fortalezas: itemsF.length,
     total_debilidades: itemsD.length,
     total_oportunidades: itemsO.length,
@@ -556,7 +699,7 @@ function guardarDafo() {
       usuario_id: currentUser ? currentUser.id : null,
       modulo: "M08",
       accion: dafoCompletado ? "ACTUALIZAR" : "CREAR",
-      detalle: "Matriz FODA " + (dafoCompletado ? "actualizada" : "creada") + " con matrices FO, FA, DO, DA."
+      detalle: "Matriz FODA " + (dafoCompletado ? "actualizada" : "creada") + ". FO:" + s.FO + "% FA:" + s.FA + "% DO:" + s.DO + "% DA:" + s.DA + "%"
     });
   }).then(function() {
     dafoCompletado = true;
@@ -572,15 +715,19 @@ function guardarDafo() {
 
 function cancelarDafo() {
   dafoModoActualizacion = false;
+  currentStep = 1;
   if (typeof showToast !== "undefined") showToast("Los datos por actualizar fueron cancelados.", "info");
   cargarDafo();
 }
 
 function iniciarActualizacion() {
   dafoModoActualizacion = true;
+  currentStep = 1;
   matrixScores = {};
   renderDafoUI();
 }
+
+// ==================== EVENTOS ====================
 
 var setupDone = false;
 function setupEvents() {
@@ -591,10 +738,10 @@ function setupEvents() {
   if (actualizarBtn) actualizarBtn.onclick = function() { iniciarActualizacion(); };
 
   var prevBtn = document.getElementById("dafoPrevBtn");
-  if (prevBtn) prevBtn.onclick = function() { };
+  if (prevBtn) prevBtn.onclick = navegarAnterior;
 
   var nextBtn = document.getElementById("dafoNextBtn");
-  if (nextBtn) nextBtn.onclick = function() { mostrarResultadosMatriz(); };
+  if (nextBtn) nextBtn.onclick = navegarSiguiente;
 
   var cancelBtn = document.getElementById("dafoCancelBtn");
   if (cancelBtn) cancelBtn.onclick = function() { document.getElementById("dafoCancelConfirmModal").style.display = "flex"; };
