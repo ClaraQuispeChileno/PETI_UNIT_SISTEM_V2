@@ -3774,11 +3774,10 @@ async function verificarPlanesVencidos() {
 }
 
 async function cargarDashboard() {
-  const [planRes, contenidosRes, objetivosRes, kpisRes, bcgRes] = await Promise.all([
+  const [planRes, contenidosRes, objetivosRes, bcgRes] = await Promise.all([
     supabaseClient.from('planes').select('fecha_fin, estado, fecha_inicio').eq('id', currentPlanId).single(),
     supabaseClient.from('plan_contenido').select('modulo_id, completado').eq('plan_id', currentPlanId),
     supabaseClient.from('objetivos_generales').select('id').eq('plan_id', currentPlanId),
-    supabaseClient.from('kpis').select('id').eq('plan_id', currentPlanId),
     supabaseClient.from('matriz_bcg').select('estado').eq('plan_id', currentPlanId).maybeSingle()
   ]);
 
@@ -3843,7 +3842,6 @@ async function cargarDashboard() {
 
   document.getElementById('modulosCompletados').innerText = completados;
   document.getElementById('totalObjetivos').innerText = (objetivosRes.data || []).length;
-  document.getElementById('totalKPIs').innerText = (kpisRes.data || []).length;
 
   await Promise.all([
     cargarEstadoPlanes(),
