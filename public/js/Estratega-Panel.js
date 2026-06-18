@@ -194,29 +194,38 @@ async function cargarPlanes() {
   console.log('Planes obtenidos:', data);
   const unicos = data.filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i);
   if (unicos.length !== data.length) console.warn('Se eliminaron planes duplicados');
+  const filtrados = unicos.filter(p => p.estado === 'activo' || p.estado === 'borrador');
   const select = document.getElementById('planSelector');
   if (!select) return;
-  const estadoIcons = { borrador: '\u25CB', en_revision: '\u25C9', activo: '\u25CF', cerrado: '\u2297', rechazado: '\u2715' };
-  const estadoLabels = { borrador:'Borrador', en_revision:'En Revisión', activo:'Activo', cerrado:'Cerrado', rechazado:'Rechazado' };
-  select.innerHTML = unicos.map(p => {
+  const estadoIcons = { borrador: '\u25CB', activo: '\u25CF' };
+  const estadoLabels = { borrador:'Borrador', activo:'Activo' };
+  select.innerHTML = filtrados.map(p => {
     const icon = estadoIcons[p.estado] || '\u00B7';
     return `<option value="${p.id}" data-estado="${p.estado}">${icon} ${p.nombre} (${p.anio}) \u2014 ${estadoLabels[p.estado] || p.estado}</option>`;
   }).join('');
   select.addEventListener('change', async () => {
     currentPlanId = parseInt(select.value);
     const estado = select.options[select.selectedIndex].getAttribute('data-estado');
-    isEditable = (estado === 'borrador' || estado === 'rechazado');
+    isEditable = (estado === 'borrador');
     console.log(`Plan cambiado a ${currentPlanId}, editable: ${isEditable}`);
     await cargarDatosPlan();
+    const activeSec = document.querySelector('.section-content.active-section');
+    if (activeSec) {
+      const secId = activeSec.id;
+      if (secId === 'm06' && typeof window.cargarPorter === 'function') window.cargarPorter();
+      else if (secId === 'm07' && typeof window.cargarPest === 'function') window.cargarPest();
+      else if (secId === 'm08' && typeof window.cargarDafo === 'function') window.cargarDafo();
+      else if (secId === 'm09') await cargarCAME();
+    }
   });
-  if (unicos.length) {
-    currentPlanId = unicos[0].id;
+  if (filtrados.length) {
+    currentPlanId = filtrados[0].id;
     select.value = currentPlanId;
-    isEditable = (unicos[0].estado === 'borrador' || unicos[0].estado === 'rechazado');
+    isEditable = (filtrados[0].estado === 'borrador');
     console.log(`Plan inicial seleccionado: ${currentPlanId}, editable: ${isEditable}`);
     await cargarDatosPlan();
   } else {
-    console.warn('No hay planes en la base de datos.');
+    console.warn('No hay planes activos o en borrador en la base de datos.');
   }
 }
 
