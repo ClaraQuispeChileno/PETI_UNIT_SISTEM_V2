@@ -474,7 +474,35 @@ async function leerModulosInline(planId) {
   let html = `<div class="lectura-header"><h3 style="font-size:1rem;">Lectura del Plan #${planId}</h3><button class="btn-small btn-secondary" onclick="document.getElementById('lecturaModulosPanel').style.display='none'"><i class="bi bi-x-lg"></i> Cerrar</button></div>`;
   for (const m of modulos) {
     const c = contMap[m.id];
-    const texto = c?.contenido ? (typeof c.contenido === 'string' ? c.contenido : JSON.stringify(c.contenido, null, 2)) : '(Sin contenido registrado)';
+    let texto;
+    if (m.id === 'M09') {
+      const { data: fodaPC } = await supabaseClient.from('plan_contenido')
+        .select('contenido')
+        .eq('plan_id', planId)
+        .eq('modulo_id', 'M08')
+        .maybeSingle();
+      const sintesis = fodaPC?.contenido?.sintesis;
+      if (sintesis) {
+        const rels = [
+          { rel: 'FO', label: 'Fortalezas + Oportunidades', tipo: 'Estrategia Ofensiva', punt: sintesis.FO, desc: 'Deber\u00e1 adoptar estrategias de crecimiento' },
+          { rel: 'FA', label: 'Fortalezas + Amenazas', tipo: 'Estrategia Defensiva', punt: sintesis.FA, desc: 'La empresa est\u00e1 preparada para enfrentarse a las amenazas' },
+          { rel: 'DO', label: 'Debilidades + Oportunidades', tipo: 'Estrategia de Reorientaci\u00f3n', punt: sintesis.DO, desc: 'La empresa no puede aprovechar las oportunidades porque carece de preparaci\u00f3n adecuada' },
+          { rel: 'DA', label: 'Debilidades + Amenazas', tipo: 'Estrategia de Supervivencia', punt: sintesis.DA, desc: 'Se enfrenta a amenazas externas sin las fortalezas necesarias para luchar con la competencia' }
+        ];
+        texto = '<strong style="color:#2563eb;">S\u00cdNTESIS DE RESULTADOS \u2014 MATRIZ FODA</strong>';
+        texto += '<table style="width:100%;border-collapse:collapse;margin-top:0.5rem;font-size:0.78rem;">';
+        texto += '<thead><tr><th style="text-align:left;padding:0.4rem 0.5rem;background:#f8fafc;border:1px solid #e2e8f0;font-weight:700;color:#475569;">Relaciones</th><th style="text-align:left;padding:0.4rem 0.5rem;background:#f8fafc;border:1px solid #e2e8f0;font-weight:700;color:#475569;">Tipolog\u00eda de estrategia</th><th style="text-align:center;padding:0.4rem 0.5rem;background:#f8fafc;border:1px solid #e2e8f0;font-weight:700;color:#475569;">Puntuaci\u00f3n</th><th style="text-align:left;padding:0.4rem 0.5rem;background:#f8fafc;border:1px solid #e2e8f0;font-weight:700;color:#475569;">Descripci\u00f3n</th></tr></thead><tbody>';
+        rels.forEach(function(r) {
+          var pv = r.punt !== undefined && r.punt !== null ? r.punt + '%' : '\u2014';
+          texto += '<tr><td style="padding:0.4rem 0.5rem;border:1px solid #e2e8f0;"><strong>' + r.rel + '</strong><br><span style="font-size:0.7rem;color:#64748b;">' + r.label + '</span></td><td style="padding:0.4rem 0.5rem;border:1px solid #e2e8f0;">' + r.tipo + '</td><td style="text-align:center;padding:0.4rem 0.5rem;border:1px solid #e2e8f0;font-weight:700;">' + pv + '</td><td style="padding:0.4rem 0.5rem;border:1px solid #e2e8f0;font-size:0.72rem;color:#475569;">' + r.desc + '</td></tr>';
+        });
+        texto += '</tbody></table>';
+      } else {
+        texto = '(Sin datos de s\u00edntesis FODA registrados)';
+      }
+    } else {
+      texto = c?.contenido ? (typeof c.contenido === 'string' ? c.contenido : JSON.stringify(c.contenido, null, 2)) : '(Sin contenido registrado)';
+    }
     html += `
     <div class="lectura-modulo">
       <div class="lectura-modulo-header" onclick="toggleLecturaModulo(this)">
@@ -515,9 +543,40 @@ async function verResumenEjecutivo(planId) {
     cachedM01 = { empresa: empresaRes.data, contenido: globalRes.data };
   }
   const infoGlobal = cachedM01?.contenido || {};
-  const { data: foo } = await supabaseClient.from('foda').select('tipo, descripcion').eq('plan_id', planId);
-  const foda = { fortalezas: [], debilidades: [], oportunidades: [], amenazas: [] };
-  (foo || []).forEach(f => { if (f.tipo === 'fortaleza') foda.fortalezas.push(f.descripcion); else if (f.tipo === 'debilidad') foda.debilidades.push(f.descripcion); else if (f.tipo === 'oportunidad') foda.oportunidades.push(f.descripcion); else if (f.tipo === 'amenaza') foda.amenazas.push(f.descripcion); });
+  const [fodaRes, cvFodaRes, bcgFodaRes, porterRes, pestRes, pcRes] = await Promise.all([
+    supabaseClient.from('foda').select('tipo, descripcion').eq('plan_id', planId),
+    supabaseClient.from('cadena_valor_foda').select('tipo, descripcion').eq('plan_id', planId),
+    supabaseClient.from('bcg_foda').select('tipo, descripcion').eq('plan_id', planId).not('generado_auto', 'eq', true),
+    supabaseClient.from('porter_oa').select('tipo, descripcion').eq('plan_id', planId),
+    supabaseClient.from('pest_oa').select('tipo, descripcion').eq('plan_id', planId),
+    supabaseClient.from('plan_contenido').select('contenido').eq('plan_id', planId).eq('modulo_id', 'M08').maybeSingle()
+  ]);
+  var foda = { fortalezas: [], debilidades: [], oportunidades: [], amenazas: [] };
+  function addToFoda(arr, tipo, desc) {
+    if (tipo === 'fortaleza') { if (!arr.fortalezas.some(function(x){return x===desc;})) arr.fortalezas.push(desc); }
+    else if (tipo === 'debilidad') { if (!arr.debilidades.some(function(x){return x===desc;})) arr.debilidades.push(desc); }
+    else if (tipo === 'oportunidad') { if (!arr.oportunidades.some(function(x){return x===desc;})) arr.oportunidades.push(desc); }
+    else if (tipo === 'amenaza') { if (!arr.amenazas.some(function(x){return x===desc;})) arr.amenazas.push(desc); }
+  }
+  (fodaRes.data || []).forEach(function(f){ addToFoda(foda, f.tipo, f.descripcion); });
+  (cvFodaRes.data || []).forEach(function(f){ addToFoda(foda, f.tipo, f.descripcion); });
+  (bcgFodaRes.data || []).forEach(function(f){ addToFoda(foda, f.tipo, f.descripcion); });
+  (porterRes.data || []).forEach(function(f){ addToFoda(foda, f.tipo, f.descripcion); });
+  (pestRes.data || []).forEach(function(f){ addToFoda(foda, f.tipo, f.descripcion); });
+
+  var sintesis = pcRes?.data?.contenido?.sintesis;
+  var sintesisHtml = '';
+  if (sintesis) {
+    var rels = [
+      { rel: 'FO', label: 'Fortalezas + Oportunidades', tipo: 'Estrategia Ofensiva', punt: sintesis.FO },
+      { rel: 'FA', label: 'Fortalezas + Amenazas', tipo: 'Estrategia Defensiva', punt: sintesis.FA },
+      { rel: 'DO', label: 'Debilidades + Oportunidades', tipo: 'Estrategia de Reorientaci\u00f3n', punt: sintesis.DO },
+      { rel: 'DA', label: 'Debilidades + Amenazas', tipo: 'Estrategia de Supervivencia', punt: sintesis.DA }
+    ];
+    sintesisHtml = '<div style="margin-top:0.8rem;"><strong style="color:#2563eb;">S\u00cdNTESIS FODA</strong><table style="width:100%;border-collapse:collapse;margin-top:0.3rem;font-size:0.75rem;"><thead><tr><th style="text-align:left;padding:0.3rem 0.4rem;background:#f8fafc;border:1px solid #e2e8f0;">Rel.</th><th style="text-align:left;padding:0.3rem 0.4rem;background:#f8fafc;border:1px solid #e2e8f0;">Estrategia</th><th style="text-align:center;padding:0.3rem 0.4rem;background:#f8fafc;border:1px solid #e2e8f0;">Punt.</th></tr></thead><tbody>';
+    rels.forEach(function(r){ var pv = r.punt !== undefined && r.punt !== null ? r.punt + '%' : '\u2014'; sintesisHtml += '<tr><td style="padding:0.3rem 0.4rem;border:1px solid #e2e8f0;"><strong>' + r.rel + '</strong></td><td style="padding:0.3rem 0.4rem;border:1px solid #e2e8f0;font-size:0.7rem;">' + r.tipo + '</td><td style="text-align:center;padding:0.3rem 0.4rem;border:1px solid #e2e8f0;font-weight:700;">' + pv + '</td></tr>'; });
+    sintesisHtml += '</tbody></table></div>';
+  }
 
   document.getElementById('detallePlanContenido').innerHTML = `
     <div style="display:grid;gap:0.8rem;">
@@ -526,6 +585,7 @@ async function verResumenEjecutivo(planId) {
       ${infoGlobal.mision ? `<div><strong>Misión:</strong> ${infoGlobal.mision}</div>` : ''}
       ${infoGlobal.vision ? `<div><strong>Visión:</strong> ${infoGlobal.vision}</div>` : ''}
       <div><strong>FODA:</strong> F:${foda.fortalezas.length} D:${foda.debilidades.length} O:${foda.oportunidades.length} A:${foda.amenazas.length}</div>
+      ${sintesisHtml}
       <div><span class="pill ${plan.estado === 'en_revision' ? 'pill-amber' : plan.estado === 'activo' ? 'pill-green' : 'pill-gray'}">${plan.estado}</span></div>
     </div>`;
   document.getElementById('detallePlanModal').style.display = 'flex';
@@ -1330,6 +1390,30 @@ async function generarYGuardarPDF(tipo, titulo, htmlContenido) {
   return fileUrl;
 }
 
+async function generarHTMLSintesisFODA(planId) {
+  try {
+    const { data: pc } = await supabaseClient.from('plan_contenido')
+      .select('contenido').eq('plan_id', planId).eq('modulo_id', 'M08').maybeSingle();
+    const s = pc?.contenido?.sintesis;
+    if (!s || (s.FO === undefined && s.FA === undefined)) return '';
+    var rels = [
+      { rel:'FO', label:'Fortalezas + Oportunidades', tipo:'Estrategia Ofensiva', punt:s.FO, desc:'Deber\u00e1 adoptar estrategias de crecimiento' },
+      { rel:'FA', label:'Fortalezas + Amenazas', tipo:'Estrategia Defensiva', punt:s.FA, desc:'La empresa est\u00e1 preparada para enfrentarse a las amenazas' },
+      { rel:'DO', label:'Debilidades + Oportunidades', tipo:'Estrategia de Reorientaci\u00f3n', punt:s.DO, desc:'La empresa no puede aprovechar las oportunidades porque carece de preparaci\u00f3n adecuada' },
+      { rel:'DA', label:'Debilidades + Amenazas', tipo:'Estrategia de Supervivencia', punt:s.DA, desc:'Se enfrenta a amenazas externas sin las fortalezas necesarias para luchar con la competencia' }
+    ];
+    var html = '<h3 style="color:#2563eb;margin-top:1rem;">S\u00cdNTESIS DE RESULTADOS \u2014 MATRIZ FODA</h3>';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:0.5rem;">';
+    html += '<thead><tr style="background:#f8fafc;"><th style="text-align:left;padding:6px;border:1px solid #e2e8f0;">Relaciones</th><th style="text-align:left;padding:6px;border:1px solid #e2e8f0;">Tipolog\u00eda de estrategia</th><th style="text-align:center;padding:6px;border:1px solid #e2e8f0;">Puntuaci\u00f3n</th><th style="text-align:left;padding:6px;border:1px solid #e2e8f0;">Descripci\u00f3n</th></tr></thead><tbody>';
+    rels.forEach(function(r){
+      var pv = r.punt !== undefined && r.punt !== null ? r.punt + '%' : '\u2014';
+      html += '<tr><td style="padding:6px;border:1px solid #e2e8f0;"><strong>' + r.rel + '</strong><br><span style="font-size:11px;color:#64748b;">' + r.label + '</span></td><td style="padding:6px;border:1px solid #e2e8f0;">' + r.tipo + '</td><td style="text-align:center;padding:6px;border:1px solid #e2e8f0;font-weight:700;">' + pv + '</td><td style="padding:6px;border:1px solid #e2e8f0;font-size:11px;color:#475569;">' + r.desc + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+  } catch(e) { console.error('Error generando síntesis FODA:', e); return ''; }
+}
+
 window.descargarReporte = async function(tipo) {
   if (!selectedReportPlanId) { showToast('Selecciona un plan primero.', 'error'); return; }
   const { data: plan } = await supabaseClient.from('planes').select('nombre, anio').eq('id', selectedReportPlanId).single();
@@ -1346,7 +1430,8 @@ window.descargarReporte = async function(tipo) {
     }
     const infoGlobal = cachedM01?.contenido || {};
     const { data: foo } = await supabaseClient.from('foda').select('tipo,descripcion').eq('plan_id', selectedReportPlanId).limit(20);
-    htmlContenido = `<h2 style="color:#334155;">${planNombre} (${plan?.anio})</h2><h3 style="color:#2563eb;">Misión</h3><p>${infoGlobal.mision || '—'}</p><h3 style="color:#2563eb;">Visión</h3><p>${infoGlobal.vision || '—'}</p><h3 style="color:#2563eb;">FODA</h3>${(foo||[]).map(f=>`<p><strong>${f.tipo}:</strong> ${f.descripcion}</p>`).join('')}`;
+    const sintesisHtml = await generarHTMLSintesisFODA(selectedReportPlanId);
+    htmlContenido = `<h2 style="color:#334155;">${planNombre} (${plan?.anio})</h2><h3 style="color:#2563eb;">Misión</h3><p>${infoGlobal.mision || '—'}</p><h3 style="color:#2563eb;">Visión</h3><p>${infoGlobal.vision || '—'}</p><h3 style="color:#2563eb;">FODA</h3>${(foo||[]).map(f=>`<p><strong>${f.tipo}:</strong> ${f.descripcion}</p>`).join('')}${sintesisHtml}`;
   } else if (tipo === 'kpis') {
     titulo = `Avance de KPIs - ${planNombre}`;
     const { data: kpis } = await supabaseClient.from('kpis').select('*').eq('plan_id', selectedReportPlanId);
@@ -1383,6 +1468,7 @@ window.descargarAvanceGeneral = async function() {
   const { data: proysAll } = await supabaseClient.from('proyectos').select('*').eq('plan_id', selectedReportPlanId);
   const { data: bcgAll } = await supabaseClient.from('matriz_bcg').select('datos_uen').eq('plan_id', selectedReportPlanId).single();
   const { data: fodaAll } = await supabaseClient.from('foda').select('*').eq('plan_id', selectedReportPlanId).limit(30);
+  const sintesisHtml = await generarHTMLSintesisFODA(selectedReportPlanId);
 
   const compMap = Object.fromEntries((contenidos || []).map(c => [c.modulo_id, c.completado]));
   const completados = Object.values(compMap).filter(Boolean).length;
@@ -1394,7 +1480,7 @@ window.descargarAvanceGeneral = async function() {
     <table style="width:100%;border-collapse:collapse;font-size:12px;">${(modulos||[]).map(m => `<tr><td>${m.id} ${m.nombre}</td><td style="text-align:right;">${compMap[m.id] ? 'Completado' : 'Pendiente'}</td></tr>`).join('')}</table>
     <h2 style="color:#2563eb;border-bottom:2px solid #e2e8f0;padding-bottom:4px;margin-top:1rem;">KPIs (${kpisAll?.length || 0})</h2>${(kpisAll||[]).map(k => `<p><strong>${k.nombre}:</strong> ${k.valor_actual || '—'}/${k.meta || '—'} ${k.unidad||''}</p>`).join('')}
     <h2 style="color:#2563eb;border-bottom:2px solid #e2e8f0;padding-bottom:4px;margin-top:1rem;">Proyectos (${proysAll?.length || 0})</h2>${(proysAll||[]).map(p => `<p>${p.nombre}: ${p.avance||0}% (${p.estado})</p>`).join('')}
-    <h2 style="color:#2563eb;border-bottom:2px solid #e2e8f0;padding-bottom:4px;margin-top:1rem;">FODA (${fodaAll?.length || 0} items)</h2>${(fodaAll||[]).map(f => `<p><strong>${f.tipo}:</strong> ${f.descripcion}</p>`).join('')}`;
+    <h2 style="color:#2563eb;border-bottom:2px solid #e2e8f0;padding-bottom:4px;margin-top:1rem;">FODA (${fodaAll?.length || 0} items)</h2>${(fodaAll||[]).map(f => `<p><strong>${f.tipo}:</strong> ${f.descripcion}</p>`).join('')}${sintesisHtml}`;
   if (bcgAll?.datos_uen) {
     const uens = Array.isArray(bcgAll.datos_uen) ? bcgAll.datos_uen : [];
     html += `<h2 style="color:#2563eb;border-bottom:2px solid #e2e8f0;padding-bottom:4px;margin-top:1rem;">BCG (${uens.length} UEN)</h2>${uens.map((u,i) => `<p>${i+1}. ${u.nombre || 'UEN '+(i+1)}: ${u.cuadrante || '—'}</p>`).join('')}`;
@@ -1465,7 +1551,7 @@ window.descargarPlanCompleto = async function(planId) {
   const pestOA = pestRes.data || [];
   const foda = fodaRes.data || [];
   const cameItems = cameRes.data || [];
-  const pestContenido = contMap['M08']?.contenido || {};
+  const pestContenido = contMap['M07']?.contenido?.normalizados || contMap['M07']?.contenido?.promedios || {};
 
   const fechaHoy = new Date().toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' });
   const empresaNombre = empresa?.nombre || 'ContaPerú S.A.C.';
@@ -1555,13 +1641,19 @@ window.descargarPlanCompleto = async function(planId) {
     return `<div style="margin:1rem 0;max-width:500px;">${bars}</div>`;
   }
 
-  // FODA cruzada (puntajes desde plan_contenido M08 o M09)
-  const dafoScores = contMap['M08']?.contenido?.puntajes || contMap['M09']?.contenido?.puntajes || null;
+  // FODA cruzada (sintesis desde plan_contenido M08)
+  let dafoCont = contMap['M08']?.contenido;
+  let dafoScores = dafoCont?.sintesis || null;
+  if (!dafoScores) {
+    const { data: pcFallback } = await supabaseClient.from('plan_contenido')
+      .select('contenido').eq('plan_id', planId).eq('modulo_id', 'M08').maybeSingle();
+    if (pcFallback?.contenido?.sintesis) dafoScores = pcFallback.contenido.sintesis;
+  }
   const dafoRows = dafoScores ? [
-    { rel: 'FO', label: 'Fortalezas + Oportunidades', tipo: 'Estrategia Ofensiva', punt: dafoScores.FO, desc: 'Deberá adoptar estrategias de crecimiento', color: '#059669' },
-    { rel: 'AF', label: 'Amenazas + Fortalezas', tipo: 'Estrategia Defensiva', punt: dafoScores.AF, desc: 'La empresa está preparada para enfrentarse a las amenazas', color: '#2563eb' },
-    { rel: 'AD', label: 'Amenazas + Debilidades', tipo: 'Estrategia de Supervivencia', punt: dafoScores.AD, desc: 'Se enfrenta a amenazas externas sin las fortalezas necesarias', color: '#d97706' },
-    { rel: 'OD', label: 'Oportunidades + Debilidades', tipo: 'Estrategia de Reorientación', punt: dafoScores.OD, desc: 'La empresa no puede aprovechar las oportunidades por falta de preparación', color: '#dc2626' }
+    { rel: 'FO', label: 'Fortalezas + Oportunidades', tipo: 'Estrategia Ofensiva', punt: dafoScores.FO, desc: 'Deber\u00e1 adoptar estrategias de crecimiento', color: '#059669' },
+    { rel: 'FA', label: 'Fortalezas + Amenazas', tipo: 'Estrategia Defensiva', punt: dafoScores.FA, desc: 'La empresa est\u00e1 preparada para enfrentarse a las amenazas', color: '#2563eb' },
+    { rel: 'DO', label: 'Debilidades + Oportunidades', tipo: 'Estrategia de Reorientaci\u00f3n', punt: dafoScores.DO, desc: 'La empresa no puede aprovechar las oportunidades por falta de preparaci\u00f3n', color: '#d97706' },
+    { rel: 'DA', label: 'Debilidades + Amenazas', tipo: 'Estrategia de Supervivencia', punt: dafoScores.DA, desc: 'Se enfrenta a amenazas externas sin las fortalezas necesarias', color: '#dc2626' }
   ] : [];
 
   const sections = [];
